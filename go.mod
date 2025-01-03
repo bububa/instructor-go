@@ -3,6 +3,7 @@ module github.com/instructor-ai/instructor-go
 go 1.21.8
 
 require (
+	github.com/cespare/xxhash v1.1.0
 	github.com/cohere-ai/cohere-go/v2 v2.8.1
 	github.com/go-playground/validator/v10 v10.21.0
 	github.com/invopop/jsonschema v0.12.0

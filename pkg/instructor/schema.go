@@ -3,10 +3,19 @@ package instructor
 import (
 	"encoding/json"
 	"reflect"
+	"strconv"
 	"strings"
+	"sync"
 
+	"github.com/cespare/xxhash"
 	"github.com/invopop/jsonschema"
 )
+
+var reflectorPool = sync.Pool{
+	New: func() any {
+		return new(jsonschema.Reflector)
+	},
+}
 
 type Schema struct {
 	*jsonschema.Schema
@@ -27,8 +36,7 @@ type FunctionDefinition struct {
 }
 
 func NewSchema(t reflect.Type) (*Schema, error) {
-
-	schema := jsonschema.ReflectFromType(t)
+	schema := JSONSchema(t)
 
 	str, err := json.MarshalIndent(schema, "", "  ")
 	if err != nil {
@@ -48,7 +56,6 @@ func NewSchema(t reflect.Type) (*Schema, error) {
 }
 
 func ToFunctionSchema(tType reflect.Type, tSchema *jsonschema.Schema) []FunctionDefinition {
-
 	fds := []FunctionDefinition{}
 
 	for name, def := range tSchema.Definitions {
@@ -73,4 +80,28 @@ func ToFunctionSchema(tType reflect.Type, tSchema *jsonschema.Schema) []Function
 
 func (s *Schema) NameFromRef() string {
 	return strings.Split(s.Ref, "/")[2] // ex: '#/$defs/MyStruct'
+}
+
+// JSONSchema return the json schema of the configuration
+func JSONSchema(t reflect.Type) *jsonschema.Schema {
+	r := reflectorPool.Get().(*jsonschema.Reflector)
+	defer reflectorPool.Put(r)
+
+	// The Struct name could be same, but the package name is different
+	// For example, all of the notification plugins have the same struct name - `NotifyConfig`
+	// This would cause the json schema to be wrong `$ref` to the same name.
+	// the following code is to fix this issue by adding the package name to the struct name
+	// p.s. this issue has been reported in: https://github.com/invopop/jsonschema/issues/42
+	r.Namer = func(t reflect.Type) string {
+		name := t.Name()
+		if t.Kind() == reflect.Struct {
+			v := reflect.New(t)
+			vt := v.Elem().Type()
+			name = vt.PkgPath() + "/" + vt.Name()
+			name = strconv.FormatUint(xxhash.Sum64String(name), 10)
+		}
+		return name
+	}
+
+	return r.ReflectFromType(t)
 }
