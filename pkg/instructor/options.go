@@ -3,6 +3,7 @@ package instructor
 const (
 	DefaultMaxRetries = 3
 	DefaultValidator  = false
+	DefaultVerbose    = false
 )
 
 type Options struct {
@@ -17,6 +18,7 @@ var defaultOptions = Options{
 	Mode:       toPtr(ModeDefault),
 	MaxRetries: toPtr(DefaultMaxRetries),
 	validate:   toPtr(DefaultValidator),
+	verbose:    toPtr(DefaultVerbose),
 }
 
 func WithMode(mode Mode) Options {
