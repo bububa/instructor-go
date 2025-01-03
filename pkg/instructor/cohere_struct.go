@@ -11,12 +11,12 @@ type InstructorCohere struct {
 	mode       Mode
 	maxRetries int
 	validate   bool
+	verbose    bool
 }
 
 var _ Instructor = &InstructorCohere{}
 
 func FromCohere(client *cohere.Client, opts ...Options) *InstructorCohere {
-
 	options := mergeOptions(opts...)
 
 	i := &InstructorCohere{
@@ -25,6 +25,7 @@ func FromCohere(client *cohere.Client, opts ...Options) *InstructorCohere {
 		provider:   ProviderCohere,
 		mode:       *options.Mode,
 		maxRetries: *options.MaxRetries,
+		verbose:    *options.verbose,
 	}
 	return i
 }
@@ -40,6 +41,11 @@ func (i *InstructorCohere) Mode() string {
 func (i *InstructorCohere) MaxRetries() int {
 	return i.maxRetries
 }
+
 func (i *InstructorCohere) Validate() bool {
 	return i.validate
+}
+
+func (i *InstructorCohere) Verbose() bool {
+	return i.verbose
 }
