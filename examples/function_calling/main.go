@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/instructor-ai/instructor-go/pkg/instructor"
+	"github.com/bububa/instructor-go/pkg/instructor"
 	openai "github.com/sashabaranov/go-openai"
 )
 
@@ -30,7 +30,6 @@ func (s *Search) execute() {
 type Searches = []Search
 
 func segment(ctx context.Context, data string) *Searches {
-
 	client := instructor.FromOpenAI(
 		openai.NewClient(os.Getenv("OPENAI_API_KEY")),
 		instructor.WithMode(instructor.ModeToolCall),

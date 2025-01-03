@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/instructor-ai/instructor-go/pkg/instructor"
+	"github.com/bububa/instructor-go/pkg/instructor"
 	anthropic "github.com/liushuangls/go-anthropic/v2"
 )
 
@@ -53,7 +53,6 @@ func classify(data string) *Prediction {
 }
 
 func main() {
-
 	ticket := "My account is locked and I can't access my billing info."
 	prediction := classify(ticket)
 

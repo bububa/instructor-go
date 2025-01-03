@@ -10,7 +10,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/instructor-ai/instructor-go/pkg/instructor"
+	"github.com/bububa/instructor-go/pkg/instructor"
 	openai "github.com/sashabaranov/go-openai"
 )
 

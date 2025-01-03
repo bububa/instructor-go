@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/bububa/instructor-go/pkg/instructor"
 	cohere "github.com/cohere-ai/cohere-go/v2"
 	cohereclient "github.com/cohere-ai/cohere-go/v2/client"
-	"github.com/instructor-ai/instructor-go/pkg/instructor"
 )
 
 type HistoricalFact struct {
