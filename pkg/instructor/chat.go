@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"reflect"
 
 	"github.com/go-playground/validator/v10"
@@ -16,7 +17,6 @@ type UsageSum struct {
 }
 
 func chatHandler(i Instructor, ctx context.Context, request interface{}, response any) (interface{}, error) {
-
 	var err error
 
 	t := reflect.TypeOf(response)
@@ -30,6 +30,13 @@ func chatHandler(i Instructor, ctx context.Context, request interface{}, respons
 	usage := &UsageSum{}
 
 	for attempt := 0; attempt <= i.MaxRetries(); attempt++ {
+		if i.Verbose() {
+			if bs, err := json.MarshalIndent(request, "", "  "); err != nil {
+				fmt.Printf("%s Request MarshalError: %v\n", i.Provider(), err)
+			} else {
+				fmt.Printf("%s Request: %s\n", i.Provider(), string(bs))
+			}
+		}
 
 		text, resp, err := i.chat(ctx, request, schema)
 		if err != nil {
@@ -38,6 +45,9 @@ func chatHandler(i Instructor, ctx context.Context, request interface{}, respons
 		}
 
 		text = extractJSON(&text)
+		if i.Verbose() {
+			fmt.Printf("%s Response: %s\n", i.Provider(), text)
+		}
 
 		err = json.Unmarshal([]byte(text), &response)
 		if err != nil {
@@ -55,7 +65,6 @@ func chatHandler(i Instructor, ctx context.Context, request interface{}, respons
 			validate = validator.New()
 			// Validate the response structure against the defined model using the validator
 			err = validate.Struct(response)
-
 			if err != nil {
 				// TODO:
 				// add more sophisticated retry logic (send back validator error and parse error for model to fix).

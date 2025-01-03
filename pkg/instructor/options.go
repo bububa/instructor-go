@@ -9,6 +9,7 @@ type Options struct {
 	Mode       *Mode
 	MaxRetries *int
 	validate   *bool
+	verbose    *bool
 	// Provider specific options:
 }
 
@@ -30,6 +31,10 @@ func WithValidation() Options {
 	return Options{validate: toPtr(true)}
 }
 
+func WithVerbose() Options {
+	return Options{verbose: toPtr(true)}
+}
+
 func mergeOption(old, new Options) Options {
 	if new.Mode != nil {
 		old.Mode = new.Mode
@@ -39,6 +44,9 @@ func mergeOption(old, new Options) Options {
 	}
 	if new.validate != nil {
 		old.validate = new.validate
+	}
+	if new.verbose != nil {
+		old.verbose = new.verbose
 	}
 
 	return old
