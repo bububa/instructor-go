@@ -8,8 +8,10 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/bububa/instructor-go/pkg/instructor"
 	"github.com/liushuangls/go-anthropic/v2"
+
+	"github.com/bububa/instructor-go"
+	"github.com/bububa/instructor-go/instructors"
 )
 
 type Movie struct {
@@ -35,7 +37,7 @@ func (bc *MovieCatalog) PrintCatalog() {
 func main() {
 	ctx := context.Background()
 
-	client := instructor.FromAnthropic(
+	client := instructors.FromAnthropic(
 		anthropic.NewClient(os.Getenv("ANTHROPIC_API_KEY")),
 		instructor.WithMode(instructor.ModeJSONSchema),
 		instructor.WithMaxRetries(3),
@@ -48,13 +50,13 @@ func main() {
 	}
 
 	var movieCatalog MovieCatalog
-	_, err = client.CreateMessages(ctx, anthropic.MessagesRequest{
+	err = client.Chat(ctx, &anthropic.MessagesRequest{
 		Model: "claude-3-haiku-20240307",
 		Messages: []anthropic.Message{
 			{
 				Role: anthropic.RoleUser,
 				Content: []anthropic.MessageContent{
-					anthropic.NewImageMessageContent(anthropic.MessageContentImageSource{
+					anthropic.NewImageMessageContent(anthropic.MessageContentSource{
 						Type:      "base64",
 						MediaType: "image/jpeg",
 						Data:      data,
@@ -66,6 +68,7 @@ func main() {
 		MaxTokens: 1000,
 	},
 		&movieCatalog,
+		nil,
 	)
 	if err != nil {
 		panic(err)

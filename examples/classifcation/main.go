@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/bububa/instructor-go/pkg/instructor"
+	"github.com/bububa/instructor-go"
+	"github.com/bububa/instructor-go/instructors"
 	anthropic "github.com/liushuangls/go-anthropic/v2"
 )
 
@@ -28,14 +29,17 @@ type Prediction struct {
 func classify(data string) *Prediction {
 	ctx := context.Background()
 
-	client := instructor.FromAnthropic(
+	client := instructors.FromAnthropic(
 		anthropic.NewClient(os.Getenv("ANTHROPIC_API_KEY")),
 		instructor.WithMode(instructor.ModeToolCall),
 		instructor.WithMaxRetries(3),
 	)
 
-	var prediction Prediction
-	resp, err := client.CreateMessages(ctx, anthropic.MessagesRequest{
+	var (
+		prediction Prediction
+		resp       = new(anthropic.MessagesResponse)
+	)
+	err := client.Chat(ctx, &anthropic.MessagesRequest{
 		Model: anthropic.ModelClaude3Haiku20240307,
 		Messages: []anthropic.Message{
 			anthropic.NewUserTextMessage(fmt.Sprintf("Classify the following support ticket: %s", data)),
@@ -43,6 +47,7 @@ func classify(data string) *Prediction {
 		MaxTokens: 500,
 	},
 		&prediction,
+		resp,
 	)
 	_ = resp // sends back original response so no information loss from original API
 	if err != nil {

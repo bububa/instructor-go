@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/bububa/instructor-go/pkg/instructor"
 	openai "github.com/sashabaranov/go-openai"
+
+	"github.com/bububa/instructor-go"
+	"github.com/bububa/instructor-go/instructors"
 )
 
 type SearchType string
@@ -30,14 +32,14 @@ func (s *Search) execute() {
 type Searches = []Search
 
 func segment(ctx context.Context, data string) *Searches {
-	client := instructor.FromOpenAI(
+	client := instructors.FromOpenAI(
 		openai.NewClient(os.Getenv("OPENAI_API_KEY")),
 		instructor.WithMode(instructor.ModeToolCall),
 		instructor.WithMaxRetries(3),
 	)
 
 	var searches Searches
-	_, err := client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
+	err := client.Chat(ctx, &openai.ChatCompletionRequest{
 		Model: openai.GPT4o,
 		Messages: []openai.ChatCompletionMessage{
 			{
@@ -47,6 +49,7 @@ func segment(ctx context.Context, data string) *Searches {
 		},
 	},
 		&searches,
+		nil,
 	)
 	if err != nil {
 		panic(err)

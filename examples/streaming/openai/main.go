@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/bububa/instructor-go/pkg/instructor"
 	openai "github.com/sashabaranov/go-openai"
+
+	"github.com/bububa/instructor-go"
+	"github.com/bububa/instructor-go/instructors"
 )
 
 type Product struct {
@@ -34,7 +36,7 @@ Recommendation [
 func main() {
 	ctx := context.Background()
 
-	client := instructor.FromOpenAI(
+	client := instructors.FromOpenAI(
 		openai.NewClient(os.Getenv("OPENAI_API_KEY")),
 		instructor.WithMode(instructor.ModeJSON),
 	)
@@ -71,7 +73,7 @@ Preferred Shopping Times: Weekend Evenings
 		productList += product.String() + "\n"
 	}
 
-	recommendationChan, err := client.CreateChatCompletionStream(ctx, openai.ChatCompletionRequest{
+	recommendationChan, err := client.JSONStream(ctx, &openai.ChatCompletionRequest{
 		Model: openai.GPT4o20240513,
 		Messages: []openai.ChatCompletionMessage{
 			{
@@ -90,6 +92,7 @@ Product list:
 		Stream: true,
 	},
 		*new(Recommendation),
+		nil,
 	)
 	if err != nil {
 		panic(err)

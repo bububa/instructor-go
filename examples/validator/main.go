@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/bububa/instructor-go/pkg/instructor"
 	openai "github.com/sashabaranov/go-openai"
+
+	"github.com/bububa/instructor-go"
+	"github.com/bububa/instructor-go/instructors"
 )
 
 type User struct {
@@ -42,7 +44,7 @@ func (a Address) String() string {
 func main() {
 	ctx := context.Background()
 
-	client := instructor.FromOpenAI(
+	client := instructors.FromOpenAI(
 		openai.NewClient(os.Getenv("OPENAI_API_KEY")),
 		instructor.WithMode(instructor.ModeJSON),
 		instructor.WithMaxRetries(3),
@@ -50,9 +52,9 @@ func main() {
 	)
 
 	var user User
-	_, err := client.CreateChatCompletion(
+	err := client.Chat(
 		ctx,
-		openai.ChatCompletionRequest{
+		&openai.ChatCompletionRequest{
 			Model: openai.GPT4o,
 			Messages: []openai.ChatCompletionMessage{
 				{
@@ -65,6 +67,7 @@ func main() {
 			},
 		},
 		&user,
+		nil,
 	)
 	if err != nil {
 		panic(err)

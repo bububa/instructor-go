@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/bububa/instructor-go/pkg/instructor"
 	openai "github.com/sashabaranov/go-openai"
+
+	"github.com/bububa/instructor-go"
+	"github.com/bububa/instructor-go/instructors"
 )
 
 type Book struct {
@@ -30,7 +32,7 @@ func (bc *BookCatalog) PrintCatalog() {
 func main() {
 	ctx := context.Background()
 
-	client := instructor.FromOpenAI(
+	client := instructors.FromOpenAI(
 		openai.NewClient(os.Getenv("OPENAI_API_KEY")),
 		instructor.WithMode(instructor.ModeJSON),
 		instructor.WithMaxRetries(3),
@@ -39,7 +41,7 @@ func main() {
 	url := "https://raw.githubusercontent.com/bububa/instructor-go/main/examples/vision/openai/books.png"
 
 	var bookCatalog BookCatalog
-	_, err := client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
+	err := client.Chat(ctx, &openai.ChatCompletionRequest{
 		Model: openai.GPT4o,
 		Messages: []openai.ChatCompletionMessage{
 			{
@@ -60,6 +62,7 @@ func main() {
 		},
 	},
 		&bookCatalog,
+		nil,
 	)
 	if err != nil {
 		panic(err)

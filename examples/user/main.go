@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/bububa/instructor-go/pkg/instructor"
 	openai "github.com/sashabaranov/go-openai"
+
+	"github.com/bububa/instructor-go"
+	"github.com/bububa/instructor-go/instructors"
 )
 
 type Person struct {
@@ -17,16 +19,19 @@ type Person struct {
 func main() {
 	ctx := context.Background()
 
-	client := instructor.FromOpenAI(
+	client := instructors.FromOpenAI(
 		openai.NewClient(os.Getenv("OPENAI_API_KEY")),
 		instructor.WithMode(instructor.ModeJSON),
 		instructor.WithMaxRetries(3),
 	)
 
-	var person Person
-	resp, err := client.CreateChatCompletion(
+	var (
+		person Person
+		resp   = new(openai.ChatCompletionResponse)
+	)
+	err := client.Chat(
 		ctx,
-		openai.ChatCompletionRequest{
+		&openai.ChatCompletionRequest{
 			Model: openai.GPT4o,
 			Messages: []openai.ChatCompletionMessage{
 				{
@@ -36,6 +41,7 @@ func main() {
 			},
 		},
 		&person,
+		resp,
 	)
 	_ = resp // sends back original response so no information loss from original API
 	if err != nil {

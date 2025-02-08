@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/bububa/instructor-go/pkg/instructor"
 	cohere "github.com/cohere-ai/cohere-go/v2"
 	cohereclient "github.com/cohere-ai/cohere-go/v2/client"
+
+	"github.com/bububa/instructor-go"
+	"github.com/bububa/instructor-go/instructors"
 )
 
 type HistoricalFact struct {
@@ -26,18 +28,19 @@ Description:    %s`, hf.Decade, hf.Topic, hf.Description)
 func main() {
 	ctx := context.Background()
 
-	client := instructor.FromCohere(
+	client := instructors.FromCohere(
 		cohereclient.NewClient(cohereclient.WithToken(os.Getenv("COHERE_API_KEY"))),
 		instructor.WithMode(instructor.ModeJSON),
 		instructor.WithMaxRetries(3),
 	)
 
-	hfStream, err := client.ChatStream(ctx, &cohere.ChatStreamRequest{
+	hfStream, err := client.JSONStream(ctx, &cohere.ChatStreamRequest{
 		Model:     toPtr("command-r-plus"),
 		Message:   "Tell me about the history of artificial intelligence up to year 2000",
 		MaxTokens: toPtr(2500),
 	},
 		*new(HistoricalFact),
+		nil,
 	)
 	if err != nil {
 		panic(err)
