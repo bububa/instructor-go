@@ -10,7 +10,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/bububa/instructor-go/pkg/instructor"
+	"github.com/bububa/instructor-go"
+	"github.com/bububa/instructor-go/instructors"
 	openai "github.com/sashabaranov/go-openai"
 )
 
@@ -71,7 +72,7 @@ func (ai ActionItems) String() string {
 func main() {
 	ctx := context.Background()
 
-	client := instructor.FromOpenAI(
+	client := instructors.FromOpenAI(
 		openai.NewClient(os.Getenv("OPENAI_API_KEY")),
 		instructor.WithMode(instructor.ModeJSONStrict),
 		instructor.WithMaxRetries(0),
@@ -103,10 +104,13 @@ Carol: I can take that on once the front-end changes for the authentication syst
 Alice: Sounds like a plan. Let's get these tasks modeled out and get started.
 `
 
-	var actionItems ActionItems
-	_, err := client.CreateChatCompletion(
+	var (
+		actionItems ActionItems
+		response    = new(openai.ChatCompletionResponse)
+	)
+	err := client.Chat(
 		ctx,
-		openai.ChatCompletionRequest{
+		&openai.ChatCompletionRequest{
 			Model:       openai.GPT4oMini20240718,
 			Temperature: .2,
 			Messages: []openai.ChatCompletionMessage{
@@ -121,6 +125,7 @@ Alice: Sounds like a plan. Let's get these tasks modeled out and get started.
 			},
 		},
 		&actionItems,
+		response,
 	)
 	if err != nil {
 		panic(err)

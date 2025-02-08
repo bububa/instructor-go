@@ -4,11 +4,13 @@ Instructor Go is a library that makes it a breeze to work with structured output
 
 ---
 
-[![Twitter Follow](https://img.shields.io/twitter/follow/jxnlco?style=social)](https://twitter.com/jxnlco)
-[![LinkedIn Follow](https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/robby-horvath/)
-[![Documentation](https://img.shields.io/badge/docs-available-brightgreen)](https://go.useinstructor.com)
-[![GitHub issues](https://img.shields.io/github/issues/bububa/instructor-go.svg)](https://github.com/bububa/instructor-go/issues)
-[![Discord](https://img.shields.io/discord/1192334452110659664?label=discord)](https://discord.gg/UD9GPjbs8c)
+[![Go Reference](https://pkg.go.dev/badge/github.com/bububa/instuctor-go.svg)](https://pkg.go.dev/github.com/bububa/instuctor-go)
+[![Go](https://github.com/bububa/instuctor-go/actions/workflows/go.yml/badge.svg)](https://github.com/bububa/instuctor-go/actions/workflows/go.yml)
+[![goreleaser](https://github.com/bububa/instuctor-go/actions/workflows/goreleaser.yml/badge.svg)](https://github.com/bububa/instuctor-go/actions/workflows/goreleaser.yml)
+[![GitHub go.mod Go version of a Go module](https://img.shields.io/github/go-mod/go-version/bububa/instuctor-go.svg)](https://github.com/bububa/instuctor-go)
+[![GoReportCard](https://goreportcard.com/badge/github.com/bububa/instuctor-go)](https://goreportcard.com/report/github.com/bububa/instuctor-go)
+[![GitHub license](https://img.shields.io/github/license/bububa/instuctor-go.svg)](https://github.com/bububa/instuctor-go/blob/master/LICENSE)
+[![GitHub release](https://img.shields.io/github/release/bububa/instuctor-go.svg)](https://GitHub.com/bububa/instuctor-go/releases/)
 
 Built on top of [`invopop/jsonschema`](https://github.com/invopop/jsonschema) and utilizing `jsonschema` Go struct tags (so no changing code logic), it provides a simple and user-friendly API to manage validation, retries, and streaming responses. Get ready to supercharge your LLM workflows!
 
@@ -17,14 +19,15 @@ Built on top of [`invopop/jsonschema`](https://github.com/invopop/jsonschema) an
 Install the package into your code with:
 
 ```bash
-go get "github.com/bububa/instructor-go/pkg/instructor"
+go get "github.com/bububa/instructor-go"
 ```
 
 Import in your code:
 
 ```go
 import (
-	"github.com/bububa/instructor-go/pkg/instructor"
+	"github.com/bububa/instructor-go"
+	"github.com/bububa/instructor-go/instructors"
 )
 ```
 
@@ -49,8 +52,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/bububa/instructor-go/pkg/instructor"
 	openai "github.com/sashabaranov/go-openai"
+
+	"github.com/bububa/instructor-go"
+	"github.com/bububa/instructor-go/instructors"
 )
 
 type Person struct {
@@ -61,16 +66,19 @@ type Person struct {
 func main() {
 	ctx := context.Background()
 
-	client := instructor.FromOpenAI(
+	client := instructors.FromOpenAI(
 		openai.NewClient(os.Getenv("OPENAI_API_KEY")),
 		instructor.WithMode(instructor.ModeJSON),
 		instructor.WithMaxRetries(3),
 	)
 
-	var person Person
-	resp, err := client.CreateChatCompletion(
+	var (
+  person Person
+    resp = new(openai.ChatCompletionResponse)
+  )
+	 err := client.CreateChatCompletion(
 		ctx,
-		openai.ChatCompletionRequest{
+		&openai.ChatCompletionRequest{
 			Model: openai.GPT4o,
 			Messages: []openai.ChatCompletionMessage{
 				{
@@ -80,6 +88,7 @@ func main() {
 			},
 		},
 		&person,
+    resp,
 	)
 	_ = resp // sends back original response so no information loss from original API
 	if err != nil {
@@ -117,8 +126,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/bububa/instructor-go/pkg/instructor"
 	openai "github.com/sashabaranov/go-openai"
+
+	"github.com/bububa/instructor-go/instructors"
+	"github.com/bububa/instructor-go/"
 )
 
 type SearchType string
@@ -143,14 +154,14 @@ type Searches = []Search
 
 func segment(ctx context.Context, data string) *Searches {
 
-	client := instructor.FromOpenAI(
+	client := instructors.FromOpenAI(
 		openai.NewClient(os.Getenv("OPENAI_API_KEY")),
 		instructor.WithMode(instructor.ModeToolCall),
 		instructor.WithMaxRetries(3),
 	)
 
 	var searches Searches
-	_, err := client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
+	err := client.Chat(ctx, &openai.ChatCompletionRequest{
 		Model: openai.GPT4o,
 		Messages: []openai.ChatCompletionMessage{
 			{
@@ -160,6 +171,7 @@ func segment(ctx context.Context, data string) *Searches {
 		},
 	},
 		&searches,
+    nil,
 	)
 	if err != nil {
 		panic(err)
@@ -204,8 +216,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/bububa/instructor-go/pkg/instructor"
 	anthropic "github.com/liushuangls/go-anthropic/v2"
+
+	"github.com/bububa/instructor-go/instructors"
+	"github.com/bububa/instructor-go"
 )
 
 type LabelType string
@@ -227,14 +241,17 @@ type Prediction struct {
 func classify(data string) *Prediction {
 	ctx := context.Background()
 
-	client := instructor.FromAnthropic(
+	client := instructors.FromAnthropic(
 		anthropic.NewClient(os.Getenv("ANTHROPIC_API_KEY")),
 		instructor.WithMode(instructor.ModeToolCall),
 		instructor.WithMaxRetries(3),
 	)
 
-	var prediction Prediction
-	resp, err := client.CreateMessages(ctx, anthropic.MessagesRequest{
+	var (
+    prediction Prediction
+    resp = new(anthropic.MessagesResponse)
+  )
+	err := client.Chat(ctx, &anthropic.MessagesRequest{
 		Model: anthropic.ModelClaude3Haiku20240307,
 		Messages: []anthropic.Message{
 			anthropic.NewUserTextMessage(fmt.Sprintf("Classify the following support ticket: %s", data)),
@@ -242,6 +259,7 @@ func classify(data string) *Prediction {
 		MaxTokens: 500,
 	},
 		&prediction,
+    resp,
 	)
 	_ = resp // sends back original response so no information loss from original API
 	if err != nil {
@@ -306,8 +324,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/bububa/instructor-go/pkg/instructor"
 	openai "github.com/sashabaranov/go-openai"
+
+	"github.com/bububa/instructor-go/instructors"
+	"github.com/bububa/instructor-go"
 )
 
 type Book struct {
@@ -331,7 +351,7 @@ func (bc *BookCatalog) PrintCatalog() {
 func main() {
 	ctx := context.Background()
 
-	client := instructor.FromOpenAI(
+	client := instructors.FromOpenAI(
 		openai.NewClient(os.Getenv("OPENAI_API_KEY")),
 		instructor.WithMode(instructor.ModeJSON),
 		instructor.WithMaxRetries(3),
@@ -340,7 +360,7 @@ func main() {
 	url := "https://raw.githubusercontent.com/bububa/instructor-go/main/examples/vision/openai/books.png"
 
 	var bookCatalog BookCatalog
-	_, err := client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
+	err := client.Chat(ctx, &openai.ChatCompletionRequest{
 		Model: openai.GPT4o,
 		Messages: []openai.ChatCompletionMessage{
 			{
@@ -361,6 +381,7 @@ func main() {
 		},
 	},
 		&bookCatalog,
+    nil,
 	)
 
 	if err != nil {
@@ -445,8 +466,10 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/bububa/instructor-go/pkg/instructor"
 	"github.com/liushuangls/go-anthropic/v2"
+
+	"github.com/bububa/instructor-go/instructors"
+	"github.com/bububa/instructor-go"
 )
 
 type Movie struct {
@@ -472,7 +495,7 @@ func (bc *MovieCatalog) PrintCatalog() {
 func main() {
 	ctx := context.Background()
 
-	client := instructor.FromAnthropic(
+	client := instructors.FromAnthropic(
 		anthropic.NewClient(os.Getenv("ANTHROPIC_API_KEY")),
 		instructor.WithMode(instructor.ModeJSONSchema),
 		instructor.WithMaxRetries(3),
@@ -485,7 +508,7 @@ func main() {
 	}
 
 	var movieCatalog MovieCatalog
-	_, err = client.CreateMessages(ctx, anthropic.MessagesRequest{
+	err = client.Chat(ctx, &anthropic.MessagesRequest{
 		Model: "claude-3-haiku-20240307",
 		Messages: []anthropic.Message{
 			{
@@ -503,6 +526,7 @@ func main() {
 		MaxTokens: 1000,
 	},
 		&movieCatalog,
+    nil,
 	)
 	if err != nil {
 		panic(err)
@@ -608,8 +632,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/bububa/instructor-go/pkg/instructor"
 	openai "github.com/sashabaranov/go-openai"
+
+	"github.com/bububa/instructor-go/instructors"
+	"github.com/bububa/instructor-go"
 )
 
 type Product struct {
@@ -637,7 +663,7 @@ Recommendation [
 func main() {
 	ctx := context.Background()
 
-	client := instructor.FromOpenAI(
+	client := instructors.FromOpenAI(
 		openai.NewClient(os.Getenv("OPENAI_API_KEY")),
 		instructor.WithMode(instructor.ModeJSON),
 	)
@@ -674,7 +700,7 @@ Preferred Shopping Times: Weekend Evenings
 		productList += product.String() + "\n"
 	}
 
-	recommendationChan, err := client.CreateChatCompletionStream(ctx, openai.ChatCompletionRequest{
+	recommendationChan, err := client.JSONStream(ctx, &openai.ChatCompletionRequest{
 		Model: openai.GPT4o20240513,
 		Messages: []openai.ChatCompletionMessage{
 			{
@@ -693,6 +719,7 @@ Product list:
 		Stream: true,
 	},
 		*new(Recommendation),
+    nil,
 	)
 	if err != nil {
 		panic(err)
@@ -755,7 +782,9 @@ import (
 
 	cohere "github.com/cohere-ai/cohere-go/v2"
 	cohereclient "github.com/cohere-ai/cohere-go/v2/client"
-	"github.com/bububa/instructor-go/pkg/instructor"
+
+	"github.com/bububa/instructor-go/instructors"
+	"github.com/bububa/instructor-go"
 )
 
 type Section struct {
@@ -791,7 +820,7 @@ func (sd *StructuredDocument) PrettyPrint() string {
 func main() {
 	ctx := context.Background()
 
-	client := instructor.FromCohere(
+	client := instructors.FromCohere(
 		cohereclient.NewClient(cohereclient.WithToken(os.Getenv("COHERE_API_KEY"))),
 		instructor.WithMode(instructor.ModeToolCall),
 		instructor.WithMaxRetries(3),
@@ -808,7 +837,7 @@ func main() {
 
 	getStructuredDocument := func(docWithLines string) *StructuredDocument {
 		var structuredDoc StructuredDocument
-		_, err := client.Chat(ctx, &cohere.ChatRequest{
+		err := client.Chat(ctx, &cohere.ChatRequest{
 			Model: toPtr("command-r-plus"),
 			Preamble: toPtr(`
 You are a world class educator working on organizing your lecture notes.
@@ -818,6 +847,7 @@ Each line of the document is marked with its line number in square brackets (e.g
 			Message: docWithLines,
 		},
 			&structuredDoc,
+      nil,
 		)
 		if err != nil {
 			panic(err)
@@ -911,7 +941,9 @@ import (
 
 	cohere "github.com/cohere-ai/cohere-go/v2"
 	cohereclient "github.com/cohere-ai/cohere-go/v2/client"
-	"github.com/bububa/instructor-go/pkg/instructor"
+
+	"github.com/bububa/instructor-go/instructors"
+	"github.com/bububa/instructor-go"
 )
 
 type HistoricalFact struct {
@@ -930,18 +962,19 @@ Description:    %s`, hf.Decade, hf.Topic, hf.Description)
 func main() {
 	ctx := context.Background()
 
-	client := instructor.FromCohere(
+	client := instructors.FromCohere(
 		cohereclient.NewClient(cohereclient.WithToken(os.Getenv("COHERE_API_KEY"))),
 		instructor.WithMode(instructor.ModeJSON),
 		instructor.WithMaxRetries(3),
 	)
 
-	hfStream, err := client.ChatStream(ctx, &cohere.ChatStreamRequest{
+	hfStream, err := client.JSONStream(ctx, &cohere.ChatStreamRequest{
 		Model:     toPtr("command-r-plus"),
 		Message:   "Tell me about the history of artificial intelligence up to year 2000",
 		MaxTokens: toPtr(2500),
 	},
 		*new(HistoricalFact),
+    nil,
 	)
 	if err != nil {
 		panic(err)
@@ -997,8 +1030,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/bububa/instructor-go/pkg/instructor"
 	openai "github.com/sashabaranov/go-openai"
+
+	"github.com/bububa/instructor-go/instructors"
+	"github.com/bububa/instructor-go"
 )
 
 type Character struct {
@@ -1027,14 +1062,14 @@ func main() {
 	config := openai.DefaultConfig("ollama")
 	config.BaseURL = "http://localhost:11434/v1"
 
-	client := instructor.FromOpenAI(
+	client := instructors.FromOpenAI(
 		openai.NewClientWithConfig(config),
 		instructor.WithMode(instructor.ModeJSON),
 		instructor.WithMaxRetries(3),
 	)
 
 	var character Character
-	_, err := client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
+	err := client.Chat(ctx, &openai.ChatCompletionRequest{
 		Model: "llama3",
 		Messages: []openai.ChatCompletionMessage{
 			{
@@ -1044,6 +1079,7 @@ func main() {
 		},
 	},
 		&character,
+    nil,
 	)
 	if err != nil {
 		panic(err)
@@ -1088,8 +1124,10 @@ import (
 	"math"
 	"os"
 
-	"github.com/bububa/instructor-go/pkg/instructor"
 	openai "github.com/sashabaranov/go-openai"
+
+	"github.com/bububa/instructor-go/instructors"
+	"github.com/bububa/instructor-go"
 )
 
 type Item struct {
@@ -1130,12 +1168,12 @@ func (r *Receipt) Validate() error {
 	return nil
 }
 
-func extract(ctx context.Context, client *instructor.InstructorOpenAI, url string) (*Receipt, error) {
+func extract(ctx context.Context, client instructor.ChatInstructor[openai.ChatCompletionRequest, openai.ChatCompletionResponse], url string) (*Receipt, error) {
 
 	var receipt Receipt
-	_, err := client.CreateChatCompletion(
+	err := client.Chat(
 		ctx,
-		openai.ChatCompletionRequest{
+		&openai.ChatCompletionRequest{
 			Model:       openai.GPT4o,
 			Messages: []openai.ChatCompletionMessage{
 				{
@@ -1156,6 +1194,7 @@ func extract(ctx context.Context, client *instructor.InstructorOpenAI, url strin
 			},
 		},
 		&receipt,
+    nil
 	)
 	if err != nil {
 		return nil, err
@@ -1171,7 +1210,7 @@ func extract(ctx context.Context, client *instructor.InstructorOpenAI, url strin
 func main() {
 	ctx := context.Background()
 
-	client := instructor.FromOpenAI(
+	client := instructors.FromOpenAI(
 		openai.NewClient(os.Getenv("OPENAI_API_KEY")),
 		instructor.WithMode(instructor.ModeJSON),
 		instructor.WithMaxRetries(3),
@@ -1263,8 +1302,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/bububa/instructor-go/pkg/instructor"
 	openai "github.com/sashabaranov/go-openai"
+
+	"github.com/bububa/instructor-go/instructors"
+	"github.com/bububa/instructor-go"
 )
 
 type PriorityEnum string
@@ -1324,7 +1365,7 @@ func (ai ActionItems) String() string {
 func main() {
 	ctx := context.Background()
 
-	client := instructor.FromOpenAI(
+	client := instructors.FromOpenAI(
 		openai.NewClient(os.Getenv("OPENAI_API_KEY")),
 		instructor.WithMode(instructor.ModeJSONStrict),
 		instructor.WithMaxRetries(0),
@@ -1357,9 +1398,9 @@ Alice: Sounds like a plan. Let's get these tasks modeled out and get started.
 `
 
 	var actionItems ActionItems
-	_, err := client.CreateChatCompletion(
+	err := client.Chat(
 		ctx,
-		openai.ChatCompletionRequest{
+		&openai.ChatCompletionRequest{
 			Model:       openai.GPT4oMini20240718,
 			Temperature: .2,
 			Messages: []openai.ChatCompletionMessage{
@@ -1374,6 +1415,7 @@ Alice: Sounds like a plan. Let's get these tasks modeled out and get started.
 			},
 		},
 		&actionItems,
+    nil,
 	)
 	if err != nil {
 		panic(err)
@@ -1429,9 +1471,10 @@ Usage is summed for retries. If multiple requests are needed to get a valid resp
 <summary>Usage counting with OpenAI</summary>
 
 ```go
-resp, err := client.CreateChatCompletion(
+resp := new(openai.ChatCompletionResponse)
+err := client.Chat(
     ctx,
-    openai.ChatCompletionRequest{
+    &openai.ChatCompletionRequest{
         Model: openai.GPT4o,
         Messages: []openai.ChatCompletionMessage{
             {
@@ -1441,6 +1484,7 @@ resp, err := client.CreateChatCompletion(
         },
     },
     &person,
+    resp
 )
 
 fmt.Printf("Input tokens: %d\n", resp.Usage.PromptTokens)
@@ -1454,7 +1498,8 @@ fmt.Printf("Total tokens: %d\n", resp.Usage.TotalTokens)
 <summary>Usage counting with Anthropic</summary>
 
 ```go
-resp, err := client.CreateMessages(
+resp := new(anthropic.MessagesResponse)
+err := client.CreateMessages(
     ctx,
     anthropic.MessagesRequest{
         Model: anthropic.ModelClaude3Haiku20240307,
@@ -1464,6 +1509,7 @@ resp, err := client.CreateMessages(
 		MaxTokens: 500,
     },
     &prediction,
+  resp,
 )
 
 fmt.Printf("Input tokens: %d\n", resp.Usage.InputTokens)
@@ -1476,7 +1522,8 @@ fmt.Printf("Output tokens: %d\n", resp.Usage.OutputTokens)
 <summary>Usage counting with Cohere</summary>
 
 ```go
-resp, err := client.Chat(
+resp := new(cohere.NonStreamedChatResponse)
+err := client.Chat(
     ctx,
     &cohere.ChatRequest{
         Model: "command-r-plus",
@@ -1484,6 +1531,7 @@ resp, err := client.Chat(
         MaxTokens: 2500,
     },
     &historicalFact,
+    resp,
 )
 
 fmt.Printf("Input tokens: %d\n", int(*resp.Meta.Tokens.InputTokens))

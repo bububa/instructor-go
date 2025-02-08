@@ -6,8 +6,10 @@ import (
 	"math"
 	"os"
 
-	"github.com/bububa/instructor-go/pkg/instructor"
 	openai "github.com/sashabaranov/go-openai"
+
+	"github.com/bububa/instructor-go"
+	"github.com/bububa/instructor-go/instructors"
 )
 
 type Item struct {
@@ -48,11 +50,11 @@ func (r *Receipt) Validate() error {
 	return nil
 }
 
-func extract(ctx context.Context, client *instructor.InstructorOpenAI, url string) (*Receipt, error) {
+func extract(ctx context.Context, client instructor.ChatInstructor[openai.ChatCompletionRequest, openai.ChatCompletionResponse], url string) (*Receipt, error) {
 	var receipt Receipt
-	_, err := client.CreateChatCompletion(
+	err := client.Chat(
 		ctx,
-		openai.ChatCompletionRequest{
+		&openai.ChatCompletionRequest{
 			Model: openai.GPT4o,
 			Messages: []openai.ChatCompletionMessage{
 				{
@@ -73,6 +75,7 @@ func extract(ctx context.Context, client *instructor.InstructorOpenAI, url strin
 			},
 		},
 		&receipt,
+		nil,
 	)
 	if err != nil {
 		return nil, err
@@ -88,7 +91,7 @@ func extract(ctx context.Context, client *instructor.InstructorOpenAI, url strin
 func main() {
 	ctx := context.Background()
 
-	client := instructor.FromOpenAI(
+	client := instructors.FromOpenAI(
 		openai.NewClient(os.Getenv("OPENAI_API_KEY")),
 		instructor.WithMode(instructor.ModeJSON),
 		instructor.WithMaxRetries(3),

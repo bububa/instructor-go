@@ -7,9 +7,11 @@ import (
 	"os"
 	"strings"
 
-	"github.com/bububa/instructor-go/pkg/instructor"
 	cohere "github.com/cohere-ai/cohere-go/v2"
 	cohereclient "github.com/cohere-ai/cohere-go/v2/client"
+
+	"github.com/bububa/instructor-go"
+	"github.com/bububa/instructor-go/instructors"
 )
 
 type Section struct {
@@ -45,7 +47,7 @@ func (sd *StructuredDocument) PrettyPrint() string {
 func main() {
 	ctx := context.Background()
 
-	client := instructor.FromCohere(
+	client := instructors.FromCohere(
 		cohereclient.NewClient(cohereclient.WithToken(os.Getenv("COHERE_API_KEY"))),
 		instructor.WithMode(instructor.ModeToolCall),
 		instructor.WithMaxRetries(3),
@@ -62,7 +64,7 @@ func main() {
 
 	getStructuredDocument := func(docWithLines string) *StructuredDocument {
 		var structuredDoc StructuredDocument
-		_, err := client.Chat(ctx, &cohere.ChatRequest{
+		err := client.Chat(ctx, &cohere.ChatRequest{
 			Model: toPtr("command-r-plus"),
 			Preamble: toPtr(`
 You are a world class educator working on organizing your lecture notes.
@@ -72,6 +74,7 @@ Each line of the document is marked with its line number in square brackets (e.g
 			Message: docWithLines,
 		},
 			&structuredDoc,
+			nil,
 		)
 		if err != nil {
 			panic(err)

@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/bububa/instructor-go/pkg/instructor"
 	openai "github.com/sashabaranov/go-openai"
+
+	"github.com/bububa/instructor-go"
+	"github.com/bububa/instructor-go/instructors"
 )
 
 type Character struct {
@@ -34,14 +36,14 @@ func main() {
 	config := openai.DefaultConfig("ollama")
 	config.BaseURL = "http://localhost:11434/v1"
 
-	client := instructor.FromOpenAI(
+	client := instructors.FromOpenAI(
 		openai.NewClientWithConfig(config),
 		instructor.WithMode(instructor.ModeJSON),
 		instructor.WithMaxRetries(3),
 	)
 
 	var character Character
-	_, err := client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
+	err := client.Chat(ctx, &openai.ChatCompletionRequest{
 		Model: "llama3",
 		Messages: []openai.ChatCompletionMessage{
 			{
@@ -51,6 +53,7 @@ func main() {
 		},
 	},
 		&character,
+		nil,
 	)
 	if err != nil {
 		panic(err)
