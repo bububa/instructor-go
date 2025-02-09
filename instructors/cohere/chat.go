@@ -95,26 +95,33 @@ func (i *Instructor) EmptyResponseWithResponseUsage(ret *cohere.NonStreamedChatR
 	if ret == nil {
 		return
 	}
+	var resp cohere.NonStreamedChatResponse
 	if response == nil {
-		*ret = cohere.NonStreamedChatResponse{}
+		*ret = resp
 		return
 	}
 
-	*ret = cohere.NonStreamedChatResponse{
-		Meta: response.Meta,
-	}
+	resp.Meta = new(cohere.ApiMeta)
+	*resp.Meta = *response.Meta
+	*ret = resp
 }
 
 func (i *Instructor) SetUsageSumToResponse(response *cohere.NonStreamedChatResponse, usage *instructor.UsageSum) {
 	if response == nil {
 		return
 	}
+	if response.Meta == nil {
+		response.Meta = new(cohere.ApiMeta)
+	}
+	if response.Meta.Tokens == nil {
+		response.Meta.Tokens = new(cohere.ApiMetaTokens)
+	}
 	response.Meta.Tokens.InputTokens = internal.ToPtr(float64(usage.InputTokens))
 	response.Meta.Tokens.OutputTokens = internal.ToPtr(float64(usage.OutputTokens))
 }
 
 func (i *Instructor) CountUsageFromResponse(response *cohere.NonStreamedChatResponse, usage *instructor.UsageSum) {
-	if response == nil {
+	if response == nil || response.Meta == nil || response.Meta.Tokens == nil {
 		return
 	}
 	if v := response.Meta.Tokens.InputTokens; v != nil {
