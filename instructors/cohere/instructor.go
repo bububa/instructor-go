@@ -13,19 +13,18 @@ type Instructor struct {
 }
 
 var (
-	instance                                                                                           = new(Instructor)
-	_        instructor.ChatInstructor[cohere.ChatRequest, cohere.NonStreamedChatResponse]             = instance
-	_        instructor.JSONStreamInstructor[cohere.ChatStreamRequest, cohere.NonStreamedChatResponse] = instance
-	_        instructor.StreamInstructor[cohere.ChatStreamRequest, cohere.NonStreamedChatResponse]     = instance
+	_ instructor.ChatInstructor[cohere.ChatRequest, cohere.NonStreamedChatResponse]             = (*Instructor)(nil)
+	_ instructor.JSONStreamInstructor[cohere.ChatStreamRequest, cohere.NonStreamedChatResponse] = (*Instructor)(nil)
+	_ instructor.StreamInstructor[cohere.ChatStreamRequest, cohere.NonStreamedChatResponse]     = (*Instructor)(nil)
 )
 
 func New(client *cohereClient.Client, opts ...instructor.Option) *Instructor {
 	i := &Instructor{
 		Client: client,
 	}
+	instructor.WithProvider(instructor.ProviderCohere)
 	for _, opt := range opts {
 		opt(&i.Options)
 	}
-	instructor.WithProvider(instructor.ProviderCohere)
 	return i
 }
