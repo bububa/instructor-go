@@ -98,17 +98,24 @@ func Unmarshal(data []byte, schema interface{}) error {
 		// Recursively call Unmarshal for the pointer
 		return Unmarshal(data, schemaValue.Interface())
 	case reflect.Interface:
-		// Create a new instance of the concrete type stored in the interface
-		// First, figure out the concrete type by looking at the raw data.
-		// Assuming the raw value is a valid JSON object or value
-		concreteValue := reflect.New(schemaType.Elem()).Interface()
-		if dataBytes, err := json.Marshal(data); err != nil {
-			return err
-		} else if err := Unmarshal(dataBytes, concreteValue); err != nil {
-			return err
+		// For interface types, we need to unmarshal directly into the concrete type
+		// Unmarshal the raw data into the interface itself
+		if raw != nil {
+			// Create a new instance of the concrete type stored in the interface
+			// First, figure out the concrete type by looking at the raw data.
+			// Assuming the raw value is a valid JSON object or value
+			concreteValue := reflect.New(schemaType.Elem()).Interface()
+			if dataBytes, err := json.Marshal(data); err != nil {
+				return err
+			} else if err := Unmarshal(dataBytes, concreteValue); err != nil {
+				return err
+			}
+			// Set the unmarshalled value into the interface
+			schemaValue.Set(reflect.ValueOf(concreteValue).Elem())
+		} else {
+			// Set to nil if raw is nil
+			schemaValue.Set(reflect.Zero(schemaType))
 		}
-		// Set the unmarshalled value into the interface
-		schemaValue.Set(reflect.ValueOf(concreteValue).Elem())
 		return nil
 	case reflect.String:
 		schemaValue.SetString(cast.ToString(raw))
@@ -205,6 +212,9 @@ func processValue(value interface{}, expectedType reflect.Type) (interface{}, er
 		}
 		return reflect.New(expectedType.Elem()).Interface(), nil
 	case reflect.Interface:
+		if value == nil {
+			return nil, nil
+		}
 		bs, err := json.Marshal(value)
 		if err != nil {
 			return nil, err

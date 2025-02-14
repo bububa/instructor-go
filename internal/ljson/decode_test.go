@@ -76,6 +76,17 @@ func TestUnmarshal(t *testing.T) {
 	// Print the processed result
 	resultJSON, _ = json.MarshalIndent(mapResult, "", "  ")
 	fmt.Println(string(resultJSON))
+
+	// Example with interface type
+	interfaceData := `{
+		"some_field": "{\"a\": \"456\"}"
+	}`
+	var myInterface interface{}
+	if err := Unmarshal([]byte(interfaceData), &myInterface); err != nil {
+		fmt.Println("Error unmarshalling interface:", err)
+	} else {
+		fmt.Printf("Unmarshalled interface: %+v\n", myInterface)
+	}
 }
 
 func TestComplicateUnmarshal(t *testing.T) {
