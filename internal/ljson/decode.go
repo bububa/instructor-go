@@ -5,6 +5,7 @@ import (
 	"reflect"
 
 	jsoniter "github.com/json-iterator/go"
+	"github.com/kaptinlin/jsonrepair"
 	"github.com/spf13/cast"
 )
 
@@ -28,6 +29,9 @@ func Unmarshal(data []byte, schema interface{}) error {
 		schemaValue.Set(reflect.New(schemaType.Elem()))
 	}
 
+	if repaired, err := jsonrepair.JSONRepair(string(data)); err == nil {
+		data = []byte(repaired)
+	}
 	if err := json.Unmarshal(data, schema); err == nil {
 		return nil
 	}
