@@ -12,17 +12,15 @@ var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
 // Unmarshal function that processes JSON loosely based on a schema
 func Unmarshal(data []byte, schema interface{}) error {
-	if err := json.Unmarshal(data, schema); err == nil {
-		return nil
-	}
-
 	schemaValue := reflect.ValueOf(schema)
 	schemaType := schemaValue.Type()
 
-	fmt.Println(schemaValue.Kind(), string(data))
 	// Check if the schema is a pointer and get the underlying value
 	if schemaValue.Kind() != reflect.Ptr {
 		return fmt.Errorf("schema must be a pointer")
+	}
+	if err := json.Unmarshal(data, schema); err == nil {
+		return nil
 	}
 
 	// Dereference the pointer to get the underlying value if it's a pointer
@@ -60,7 +58,6 @@ func Unmarshal(data []byte, schema interface{}) error {
 			newElem := reflect.New(schemaType.Elem()).Interface()
 			// Check if the item is a stringified JSON object
 			if jsonString, ok := item.(string); ok && isJSONString(jsonString) {
-				fmt.Println("jsonstring", jsonString)
 				// If the item is a stringified JSON, unmarshal it again
 				if err := Unmarshal([]byte(jsonString), newElem); err != nil {
 					return err
@@ -122,8 +119,7 @@ func Unmarshal(data []byte, schema interface{}) error {
 				if err != nil {
 					return err
 				}
-				field.Set(reflect.ValueOf(processedValue))
-			} else {
+				field.Set(reflect.ValueOf(processedValue).Convert(field.Type()))
 			}
 		}
 		return nil
@@ -138,14 +134,9 @@ func Unmarshal(data []byte, schema interface{}) error {
 		// For interface types, we need to unmarshal directly into the concrete type
 		// Unmarshal the raw data into the interface itself
 		if raw != nil {
-			concreteValue := reflect.New(schemaType.Elem()).Interface()
-			if dataBytes, err := json.Marshal(data); err != nil {
-				return err
-			} else if err := Unmarshal(dataBytes, concreteValue); err != nil {
+			if err := Unmarshal(data, schemaValue.Interface()); err != nil {
 				return err
 			}
-			// Set the unmarshalled value into the interface
-			schemaValue.Set(reflect.ValueOf(concreteValue).Elem())
 		} else {
 			// Set to nil if raw is nil
 			schemaValue.Set(reflect.Zero(schemaType))
@@ -186,7 +177,7 @@ func findFieldByJSONTag(v reflect.Value, jsonTag string) reflect.Value {
 // Converts values to match expected schema types
 func processValue(value interface{}, expectedType reflect.Type) (interface{}, error) {
 	// Handle stringified JSON arrays or objects
-	if expectedType.Kind() == reflect.Slice || expectedType.Kind() == reflect.Map || expectedType.Kind() == reflect.Struct || expectedType.Kind() == reflect.Ptr {
+	if expectedType.Kind() == reflect.Slice || expectedType.Kind() == reflect.Map || expectedType.Kind() == reflect.Struct || expectedType.Kind() == reflect.Ptr || expectedType.Kind() == reflect.Interface {
 		newValue := reflect.New(expectedType).Interface()
 		var (
 			bs  []byte
@@ -280,7 +271,7 @@ func processSchema(v reflect.Value) error {
 				if err != nil {
 					return err
 				}
-				v.SetMapIndex(key, reflect.ValueOf(processedValue))
+				v.SetMapIndex(key, reflect.ValueOf(processedValue).Convert(v.Type().Elem()))
 			}
 		}
 
@@ -292,7 +283,7 @@ func processSchema(v reflect.Value) error {
 				if err != nil {
 					return err
 				}
-				v.Index(i).Set(reflect.ValueOf(processedValue))
+				v.Index(i).Set(reflect.ValueOf(processedValue).Convert(v.Type().Elem()))
 			}
 		}
 
@@ -304,7 +295,7 @@ func processSchema(v reflect.Value) error {
 				if err != nil {
 					return err
 				}
-				field.Set(reflect.ValueOf(processedValue))
+				field.Set(reflect.ValueOf(processedValue).Convert(field.Type()))
 			}
 		}
 	}
