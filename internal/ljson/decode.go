@@ -15,13 +15,33 @@ func Unmarshal(data []byte, schema interface{}) error {
 	if err := json.Unmarshal(data, schema); err == nil {
 		return nil
 	}
+
+	schemaValue := reflect.ValueOf(schema)
+	schemaType := schemaValue.Type()
+
+	fmt.Println(schemaValue.Kind(), string(data))
+	// Check if the schema is a pointer and get the underlying value
+	if schemaValue.Kind() != reflect.Ptr {
+		return fmt.Errorf("schema must be a pointer")
+	}
+
+	// Dereference the pointer to get the underlying value if it's a pointer
+	if schemaValue.IsNil() {
+		schemaValue.Set(reflect.New(schemaType.Elem()))
+	}
+
+	if err := json.Unmarshal(data, schema); err == nil {
+		return nil
+	}
+
 	var raw interface{}
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return fmt.Errorf("error unmarshalling JSON: %w", err)
 	}
 
-	schemaValue := reflect.ValueOf(schema).Elem()
-	schemaType := schemaValue.Type()
+	// Dereference the pointer to get the underlying value
+	schemaValue = schemaValue.Elem()
+	schemaType = schemaValue.Type()
 
 	switch schemaType.Kind() {
 	case reflect.Slice:
@@ -38,10 +58,19 @@ func Unmarshal(data []byte, schema interface{}) error {
 		for _, item := range rawArray {
 			// Create a new element for the slice and unmarshal into it
 			newElem := reflect.New(schemaType.Elem()).Interface()
-			if dataBytes, err := json.Marshal(item); err != nil {
-				return err
-			} else if err := Unmarshal(dataBytes, newElem); err != nil {
-				return err
+			// Check if the item is a stringified JSON object
+			if jsonString, ok := item.(string); ok && isJSONString(jsonString) {
+				fmt.Println("jsonstring", jsonString)
+				// If the item is a stringified JSON, unmarshal it again
+				if err := Unmarshal([]byte(jsonString), newElem); err != nil {
+					return err
+				}
+			} else {
+				if dataBytes, err := json.Marshal(item); err != nil {
+					return err
+				} else if err := Unmarshal(dataBytes, newElem); err != nil {
+					return err
+				}
 			}
 
 			sliceValue = reflect.Append(sliceValue, reflect.ValueOf(newElem).Elem())
@@ -62,10 +91,18 @@ func Unmarshal(data []byte, schema interface{}) error {
 			// Create a new element for the slice and unmarshal into it
 			mapKey := reflect.ValueOf(key)
 			newElem := reflect.New(schemaType.Elem()).Interface()
-			if dataBytes, err := json.Marshal(item); err != nil {
-				return err
-			} else if err := Unmarshal(dataBytes, newElem); err != nil {
-				return err
+			// Check if the item is a stringified JSON object
+			if jsonString, ok := item.(string); ok && isJSONString(jsonString) {
+				// If the item is a stringified JSON, unmarshal it again
+				if err := Unmarshal([]byte(jsonString), newElem); err != nil {
+					return err
+				}
+			} else {
+				if dataBytes, err := json.Marshal(item); err != nil {
+					return err
+				} else if err := Unmarshal(dataBytes, newElem); err != nil {
+					return err
+				}
 			}
 
 			mapValue.SetMapIndex(mapKey, reflect.ValueOf(newElem).Elem())
@@ -101,11 +138,14 @@ func Unmarshal(data []byte, schema interface{}) error {
 		// For interface types, we need to unmarshal directly into the concrete type
 		// Unmarshal the raw data into the interface itself
 		if raw != nil {
+			concreteValue := reflect.New(schemaType.Elem()).Interface()
 			if dataBytes, err := json.Marshal(data); err != nil {
 				return err
-			} else if err := Unmarshal(dataBytes, schemaValue.Interface()); err != nil {
+			} else if err := Unmarshal(dataBytes, concreteValue); err != nil {
 				return err
 			}
+			// Set the unmarshalled value into the interface
+			schemaValue.Set(reflect.ValueOf(concreteValue).Elem())
 		} else {
 			// Set to nil if raw is nil
 			schemaValue.Set(reflect.Zero(schemaType))
