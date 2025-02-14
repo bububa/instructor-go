@@ -81,10 +81,34 @@ func Unmarshal(data []byte, schema interface{}) error {
 			field := findFieldByJSONTag(schemaValue, key)
 			if field.IsValid() && field.CanSet() {
 				// Process the value based on the schema type
-				processedValue := processValue(value, field.Type())
+				processedValue, err := processValue(value, field.Type())
+				if err != nil {
+					return err
+				}
 				field.Set(reflect.ValueOf(processedValue))
+			} else {
 			}
 		}
+		return nil
+	case reflect.Ptr:
+		// Allocate the underlying value if it's nil
+		if schemaValue.IsNil() {
+			schemaValue.Set(reflect.New(schemaType.Elem()))
+		}
+		// Recursively call Unmarshal for the pointer
+		return Unmarshal(data, schemaValue.Interface())
+	case reflect.Interface:
+		// Create a new instance of the concrete type stored in the interface
+		// First, figure out the concrete type by looking at the raw data.
+		// Assuming the raw value is a valid JSON object or value
+		concreteValue := reflect.New(schemaType.Elem()).Interface()
+		if dataBytes, err := json.Marshal(data); err != nil {
+			return err
+		} else if err := Unmarshal(dataBytes, concreteValue); err != nil {
+			return err
+		}
+		// Set the unmarshalled value into the interface
+		schemaValue.Set(reflect.ValueOf(concreteValue).Elem())
 		return nil
 	case reflect.String:
 		schemaValue.SetString(cast.ToString(raw))
@@ -103,27 +127,6 @@ func Unmarshal(data []byte, schema interface{}) error {
 	return fmt.Errorf("unsupported schema type: %s", schemaType.Kind())
 }
 
-// UnmarshalDataIntoValue: unmarshals raw data into the provided value based on the schema
-func UnmarshalDataIntoValue(data interface{}, value interface{}) error {
-	valueType := reflect.TypeOf(value).Elem()
-
-	// If it's a struct, unmarshal into it
-	if valueType.Kind() == reflect.Struct {
-		dataBytes, err := json.Marshal(data)
-		if err != nil {
-			return err
-		}
-		return Unmarshal(dataBytes, value)
-	}
-
-	// If it's a primitive type, do the type conversion
-	valueElem := reflect.ValueOf(value).Elem()
-	processedValue := processValue(data, valueElem.Type())
-	valueElem.Set(reflect.ValueOf(processedValue))
-
-	return nil
-}
-
 // Find struct field by its JSON tag (case-insensitive search)
 func findFieldByJSONTag(v reflect.Value, jsonTag string) reflect.Value {
 	// Check if the struct field matches the JSON tag
@@ -140,64 +143,87 @@ func findFieldByJSONTag(v reflect.Value, jsonTag string) reflect.Value {
 }
 
 // Converts values to match expected schema types
-func processValue(value interface{}, expectedType reflect.Type) interface{} {
+func processValue(value interface{}, expectedType reflect.Type) (interface{}, error) {
 	// Handle stringified JSON arrays or objects
-	if expectedType.Kind() == reflect.Slice || expectedType.Kind() == reflect.Map || expectedType.Kind() == reflect.Struct {
+	if expectedType.Kind() == reflect.Slice || expectedType.Kind() == reflect.Map || expectedType.Kind() == reflect.Struct || expectedType.Kind() == reflect.Ptr {
+		newValue := reflect.New(expectedType).Interface()
+		var (
+			bs  []byte
+			err error
+		)
 		if jsonString, ok := value.(string); ok && isJSONString(jsonString) {
-			newValue := reflect.New(expectedType).Interface()
-			if err := Unmarshal([]byte(jsonString), newValue); err != nil {
-				return err
+			bs = []byte(jsonString)
+		} else {
+			if bs, err = json.Marshal(value); err != nil {
+				return nil, err
 			}
-			// Recursively process nested structs/maps/slices
-			processSchema(reflect.ValueOf(newValue))
-			return reflect.ValueOf(newValue).Elem().Interface()
 		}
+		if err := Unmarshal(bs, newValue); err != nil {
+			return nil, err
+		}
+		// Recursively process nested structs/maps/slices
+		if err := processSchema(reflect.ValueOf(newValue)); err != nil {
+			return nil, err
+		}
+		return reflect.ValueOf(newValue).Elem().Interface(), nil
 	}
 
 	// Use `cast` for primitive type conversion
 	switch expectedType.Kind() {
 	case reflect.String:
-		return cast.ToString(value)
+		return cast.ToString(value), nil
 	case reflect.Int:
-		return cast.ToInt(value)
+		return cast.ToInt(value), nil
 	case reflect.Int8:
-		return cast.ToInt8(value)
+		return cast.ToInt8(value), nil
 	case reflect.Int16:
-		return cast.ToInt16(value)
+		return cast.ToInt16(value), nil
 	case reflect.Int32:
-		return cast.ToInt32(value)
+		return cast.ToInt32(value), nil
 	case reflect.Int64:
-		return cast.ToInt64(value)
+		return cast.ToInt64(value), nil
 	case reflect.Uint:
-		return cast.ToUint(value)
+		return cast.ToUint(value), nil
 	case reflect.Uint8:
-		return cast.ToUint8(value)
+		return cast.ToUint8(value), nil
 	case reflect.Uint16:
-		return cast.ToUint16(value)
+		return cast.ToUint16(value), nil
 	case reflect.Uint32:
-		return cast.ToUint32(value)
+		return cast.ToUint32(value), nil
 	case reflect.Uint64:
-		return cast.ToUint64(value)
+		return cast.ToUint64(value), nil
 	case reflect.Float32:
-		return cast.ToFloat32(value)
+		return cast.ToFloat32(value), nil
 	case reflect.Float64:
-		return cast.ToFloat64(value)
+		return cast.ToFloat64(value), nil
 	case reflect.Bool:
-		return cast.ToBool(value)
+		return cast.ToBool(value), nil
+	case reflect.Ptr:
+		// Handle pointer types
+		if reflect.ValueOf(value).IsNil() {
+			return nil, nil
+		}
+		return reflect.New(expectedType.Elem()).Interface(), nil
+	case reflect.Interface:
+		bs, err := json.Marshal(value)
+		if err != nil {
+			return nil, err
+		}
+		// Create a new instance of the concrete type stored in the interface
+		concreteValue := reflect.New(expectedType.Elem()).Interface()
+		if err := Unmarshal(bs, concreteValue); err != nil {
+			return nil, err
+		}
+		return concreteValue, nil
 	}
 
-	// Handle pointer types
-	if expectedType.Kind() == reflect.Ptr && !reflect.ValueOf(value).IsNil() {
-		return reflect.New(expectedType.Elem()).Interface()
-	}
-
-	return value // Return as-is if no conversion needed
+	return value, nil // Return as-is if no conversion needed
 }
 
 // Recursively processes the schema and fixes type mismatches
-func processSchema(v reflect.Value) {
+func processSchema(v reflect.Value) error {
 	if v.Kind() != reflect.Ptr || v.IsNil() {
-		return
+		return nil
 	}
 	v = v.Elem()
 
@@ -206,7 +232,10 @@ func processSchema(v reflect.Value) {
 		for _, key := range v.MapKeys() {
 			val := v.MapIndex(key)
 			if val.CanInterface() {
-				processedValue := processValue(val.Interface(), v.Type().Elem())
+				processedValue, err := processValue(val.Interface(), v.Type().Elem())
+				if err != nil {
+					return err
+				}
 				v.SetMapIndex(key, reflect.ValueOf(processedValue))
 			}
 		}
@@ -215,7 +244,10 @@ func processSchema(v reflect.Value) {
 		for i := 0; i < v.Len(); i++ {
 			elem := v.Index(i)
 			if elem.CanInterface() {
-				processedValue := processValue(elem.Interface(), v.Type().Elem())
+				processedValue, err := processValue(elem.Interface(), v.Type().Elem())
+				if err != nil {
+					return err
+				}
 				v.Index(i).Set(reflect.ValueOf(processedValue))
 			}
 		}
@@ -224,11 +256,15 @@ func processSchema(v reflect.Value) {
 		for i := 0; i < v.NumField(); i++ {
 			field := v.Field(i)
 			if field.CanSet() {
-				processedValue := processValue(field.Interface(), field.Type())
+				processedValue, err := processValue(field.Interface(), field.Type())
+				if err != nil {
+					return err
+				}
 				field.Set(reflect.ValueOf(processedValue))
 			}
 		}
 	}
+	return nil
 }
 
 // Detects if a value is a JSON stringified object
