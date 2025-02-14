@@ -12,6 +12,7 @@ import (
 	"github.com/bububa/instructor-go"
 	"github.com/bububa/instructor-go/internal"
 	"github.com/bububa/instructor-go/internal/chat"
+	"github.com/bububa/instructor-go/internal/ljson"
 )
 
 type ResponseFormatSchemaWrapper struct {
@@ -149,7 +150,7 @@ func (i *Instructor) chatJSON(ctx context.Context, request openai.ChatCompletion
 
 	if strict {
 		resMap := make(map[string]any)
-		_ = json.Unmarshal([]byte(text), &resMap)
+		_ = ljson.Unmarshal([]byte(text), &resMap)
 
 		cleanedText, _ := json.Marshal(resMap[structName])
 		text = string(cleanedText)
