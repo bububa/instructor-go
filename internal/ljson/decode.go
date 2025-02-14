@@ -12,16 +12,34 @@ var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
 // Unmarshal function that processes JSON loosely based on a schema
 func Unmarshal(data []byte, schema interface{}) error {
+	schemaValue := reflect.ValueOf(schema)
+	schemaType := schemaValue.Type()
+
+	// Check if the schema is a pointer and get the underlying value
+	if schemaValue.Kind() != reflect.Ptr {
+		return fmt.Errorf("schema must be a pointer")
+	}
 	if err := json.Unmarshal(data, schema); err == nil {
 		return nil
 	}
+
+	// Dereference the pointer to get the underlying value if it's a pointer
+	if schemaValue.IsNil() {
+		schemaValue.Set(reflect.New(schemaType.Elem()))
+	}
+
+	if err := json.Unmarshal(data, schema); err == nil {
+		return nil
+	}
+
 	var raw interface{}
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return fmt.Errorf("error unmarshalling JSON: %w", err)
 	}
 
-	schemaValue := reflect.ValueOf(schema).Elem()
-	schemaType := schemaValue.Type()
+	// Dereference the pointer to get the underlying value
+	schemaValue = schemaValue.Elem()
+	schemaType = schemaValue.Type()
 
 	switch schemaType.Kind() {
 	case reflect.Slice:
@@ -38,10 +56,18 @@ func Unmarshal(data []byte, schema interface{}) error {
 		for _, item := range rawArray {
 			// Create a new element for the slice and unmarshal into it
 			newElem := reflect.New(schemaType.Elem()).Interface()
-			if dataBytes, err := json.Marshal(item); err != nil {
-				return err
-			} else if err := Unmarshal(dataBytes, newElem); err != nil {
-				return err
+			// Check if the item is a stringified JSON object
+			if jsonString, ok := item.(string); ok && isJSONString(jsonString) {
+				// If the item is a stringified JSON, unmarshal it again
+				if err := Unmarshal([]byte(jsonString), newElem); err != nil {
+					return err
+				}
+			} else {
+				if dataBytes, err := json.Marshal(item); err != nil {
+					return err
+				} else if err := Unmarshal(dataBytes, newElem); err != nil {
+					return err
+				}
 			}
 
 			sliceValue = reflect.Append(sliceValue, reflect.ValueOf(newElem).Elem())
@@ -62,10 +88,18 @@ func Unmarshal(data []byte, schema interface{}) error {
 			// Create a new element for the slice and unmarshal into it
 			mapKey := reflect.ValueOf(key)
 			newElem := reflect.New(schemaType.Elem()).Interface()
-			if dataBytes, err := json.Marshal(item); err != nil {
-				return err
-			} else if err := Unmarshal(dataBytes, newElem); err != nil {
-				return err
+			// Check if the item is a stringified JSON object
+			if jsonString, ok := item.(string); ok && isJSONString(jsonString) {
+				// If the item is a stringified JSON, unmarshal it again
+				if err := Unmarshal([]byte(jsonString), newElem); err != nil {
+					return err
+				}
+			} else {
+				if dataBytes, err := json.Marshal(item); err != nil {
+					return err
+				} else if err := Unmarshal(dataBytes, newElem); err != nil {
+					return err
+				}
 			}
 
 			mapValue.SetMapIndex(mapKey, reflect.ValueOf(newElem).Elem())
@@ -85,8 +119,7 @@ func Unmarshal(data []byte, schema interface{}) error {
 				if err != nil {
 					return err
 				}
-				field.Set(reflect.ValueOf(processedValue))
-			} else {
+				field.Set(reflect.ValueOf(processedValue).Convert(field.Type()))
 			}
 		}
 		return nil
@@ -101,9 +134,7 @@ func Unmarshal(data []byte, schema interface{}) error {
 		// For interface types, we need to unmarshal directly into the concrete type
 		// Unmarshal the raw data into the interface itself
 		if raw != nil {
-			if dataBytes, err := json.Marshal(data); err != nil {
-				return err
-			} else if err := Unmarshal(dataBytes, schemaValue.Interface()); err != nil {
+			if err := Unmarshal(data, schemaValue.Interface()); err != nil {
 				return err
 			}
 		} else {
@@ -146,7 +177,7 @@ func findFieldByJSONTag(v reflect.Value, jsonTag string) reflect.Value {
 // Converts values to match expected schema types
 func processValue(value interface{}, expectedType reflect.Type) (interface{}, error) {
 	// Handle stringified JSON arrays or objects
-	if expectedType.Kind() == reflect.Slice || expectedType.Kind() == reflect.Map || expectedType.Kind() == reflect.Struct || expectedType.Kind() == reflect.Ptr {
+	if expectedType.Kind() == reflect.Slice || expectedType.Kind() == reflect.Map || expectedType.Kind() == reflect.Struct || expectedType.Kind() == reflect.Ptr || expectedType.Kind() == reflect.Interface {
 		newValue := reflect.New(expectedType).Interface()
 		var (
 			bs  []byte
@@ -240,7 +271,7 @@ func processSchema(v reflect.Value) error {
 				if err != nil {
 					return err
 				}
-				v.SetMapIndex(key, reflect.ValueOf(processedValue))
+				v.SetMapIndex(key, reflect.ValueOf(processedValue).Convert(v.Type().Elem()))
 			}
 		}
 
@@ -252,7 +283,7 @@ func processSchema(v reflect.Value) error {
 				if err != nil {
 					return err
 				}
-				v.Index(i).Set(reflect.ValueOf(processedValue))
+				v.Index(i).Set(reflect.ValueOf(processedValue).Convert(v.Type().Elem()))
 			}
 		}
 
@@ -264,7 +295,7 @@ func processSchema(v reflect.Value) error {
 				if err != nil {
 					return err
 				}
-				field.Set(reflect.ValueOf(processedValue))
+				field.Set(reflect.ValueOf(processedValue).Convert(field.Type()))
 			}
 		}
 	}
