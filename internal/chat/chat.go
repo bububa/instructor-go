@@ -11,6 +11,7 @@ import (
 
 	"github.com/bububa/instructor-go"
 	"github.com/bububa/instructor-go/internal"
+	"github.com/bububa/instructor-go/internal/ljson"
 )
 
 func Handler[T any, RESP any](i instructor.ChatInstructor[T, RESP], ctx context.Context, request *T, responseType any, response *RESP) error {
@@ -49,7 +50,7 @@ func Handler[T any, RESP any](i instructor.ChatInstructor[T, RESP], ctx context.
 		}
 		i.CountUsageFromResponse(resp, usage)
 
-		if err := json.Unmarshal([]byte(text), &responseType); err != nil {
+		if err := ljson.Unmarshal([]byte(text), &responseType); err != nil {
 			// TODO:
 			// add more sophisticated retry logic (send back json and parse error for model to fix).
 			//

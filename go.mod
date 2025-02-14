@@ -8,8 +8,10 @@ require (
 	github.com/go-playground/validator/v10 v10.24.0
 	github.com/google/generative-ai-go v0.19.0
 	github.com/invopop/jsonschema v0.13.0
+	github.com/json-iterator/go v1.1.12
 	github.com/liushuangls/go-anthropic/v2 v2.13.1
 	github.com/sashabaranov/go-openai v1.37.0
+	github.com/spf13/cast v1.7.1
 	google.golang.org/api v0.220.0
 )
 
@@ -36,6 +38,8 @@ require (
 	github.com/googleapis/gax-go/v2 v2.14.1 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/mailru/easyjson v0.9.0 // indirect
+	github.com/modern-go/concurrent v0.0.0-20180228061459-e0a39a4cb421 // indirect
+	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.59.0 // indirect
