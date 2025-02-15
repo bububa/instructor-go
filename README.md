@@ -4,13 +4,13 @@ Instructor Go is a library that makes it a breeze to work with structured output
 
 ---
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/bububa/instuctor-go.svg)](https://pkg.go.dev/github.com/bububa/instuctor-go)
-[![Go](https://github.com/bububa/instuctor-go/actions/workflows/go.yml/badge.svg)](https://github.com/bububa/instuctor-go/actions/workflows/go.yml)
-[![goreleaser](https://github.com/bububa/instuctor-go/actions/workflows/goreleaser.yml/badge.svg)](https://github.com/bububa/instuctor-go/actions/workflows/goreleaser.yml)
-[![GitHub go.mod Go version of a Go module](https://img.shields.io/github/go-mod/go-version/bububa/instuctor-go.svg)](https://github.com/bububa/instuctor-go)
-[![GoReportCard](https://goreportcard.com/badge/github.com/bububa/instuctor-go)](https://goreportcard.com/report/github.com/bububa/instuctor-go)
-[![GitHub license](https://img.shields.io/github/license/bububa/instuctor-go.svg)](https://github.com/bububa/instuctor-go/blob/master/LICENSE)
-[![GitHub release](https://img.shields.io/github/release/bububa/instuctor-go.svg)](https://GitHub.com/bububa/instuctor-go/releases/)
+[![Go Reference](https://pkg.go.dev/badge/github.com/bububa/instructor-go.svg)](https://pkg.go.dev/github.com/bububa/instructor-go)
+[![Go](https://github.com/bububa/instructor-go/actions/workflows/go.yml/badge.svg)](https://github.com/bububa/instructor-go/actions/workflows/go.yml)
+[![goreleaser](https://github.com/bububa/instructor-go/actions/workflows/goreleaser.yml/badge.svg)](https://github.com/bububa/instructor-go/actions/workflows/goreleaser.yml)
+[![GitHub go.mod Go version of a Go module](https://img.shields.io/github/go-mod/go-version/bububa/instructor-go.svg)](https://github.com/bububa/instructor-go)
+[![GoReportCard](https://goreportcard.com/badge/github.com/bububa/instructor-go)](https://goreportcard.com/report/github.com/bububa/instructor-go)
+[![GitHub license](https://img.shields.io/github/license/bububa/instructor-go.svg)](https://github.com/bububa/instructor-go/blob/master/LICENSE)
+[![GitHub release](https://img.shields.io/github/release/bububa/instructor-go.svg)](https://GitHub.com/bububa/instructor-go/releases/)
 
 Built on top of [`invopop/jsonschema`](https://github.com/invopop/jsonschema) and utilizing `jsonschema` Go struct tags (so no changing code logic), it provides a simple and user-friendly API to manage validation, retries, and streaming responses. Get ready to supercharge your LLM workflows!
 

@@ -1,6 +1,6 @@
 module github.com/bububa/instructor-go
 
-go 1.23
+go 1.23.5
 
 require (
 	github.com/cespare/xxhash v1.1.0
@@ -25,6 +25,7 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.36.1 // indirect
 	github.com/aws/smithy-go v1.22.2 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
+	github.com/bububa/ljson v0.0.0-20250215054531-64a93abe21fd // indirect
 	github.com/buger/jsonparser v1.1.1 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.8 // indirect
@@ -39,7 +40,7 @@ require (
 	github.com/kaptinlin/jsonrepair v0.1.0 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/mailru/easyjson v0.9.0 // indirect
-	github.com/modern-go/concurrent v0.0.0-20180228061459-e0a39a4cb421 // indirect
+	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect

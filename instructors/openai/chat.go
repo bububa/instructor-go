@@ -6,13 +6,13 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/bububa/ljson"
 	"github.com/invopop/jsonschema"
 	openai "github.com/sashabaranov/go-openai"
 
 	"github.com/bububa/instructor-go"
 	"github.com/bububa/instructor-go/internal"
 	"github.com/bububa/instructor-go/internal/chat"
-	"github.com/bububa/instructor-go/internal/ljson"
 )
 
 type ResponseFormatSchemaWrapper struct {
