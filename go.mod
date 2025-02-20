@@ -3,15 +3,14 @@ module github.com/bububa/instructor-go
 go 1.23.5
 
 require (
-	github.com/cespare/xxhash v1.1.0
+	github.com/bububa/ljson v0.0.0-20250215054531-64a93abe21fd
+	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/cohere-ai/cohere-go/v2 v2.12.4
 	github.com/go-playground/validator/v10 v10.24.0
 	github.com/google/generative-ai-go v0.19.0
 	github.com/invopop/jsonschema v0.13.0
-	github.com/json-iterator/go v1.1.12
 	github.com/liushuangls/go-anthropic/v2 v2.13.1
 	github.com/sashabaranov/go-openai v1.37.0
-	github.com/spf13/cast v1.7.1
 	google.golang.org/api v0.220.0
 )
 
@@ -25,7 +24,6 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.36.1 // indirect
 	github.com/aws/smithy-go v1.22.2 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
-	github.com/bububa/ljson v0.0.0-20250215054531-64a93abe21fd // indirect
 	github.com/buger/jsonparser v1.1.1 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.8 // indirect
@@ -37,11 +35,13 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.4 // indirect
 	github.com/googleapis/gax-go/v2 v2.14.1 // indirect
+	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/kaptinlin/jsonrepair v0.1.0 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/mailru/easyjson v0.9.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
+	github.com/spf13/cast v1.7.1 // indirect
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.59.0 // indirect
