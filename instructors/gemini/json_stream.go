@@ -2,7 +2,9 @@ package gemini
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"log"
 
 	gemini "github.com/google/generative-ai-go/genai"
 	"google.golang.org/api/iterator"
@@ -44,6 +46,13 @@ func (i *Instructor) chatToolCallStream(ctx context.Context, request Request, sc
 	model.SystemInstruction = request.System
 	model.Tools = createTools(schema)
 
+	if i.Verbose() {
+		modelBytes, _ := json.MarshalIndent(model, "", "  ")
+		bs, _ := json.MarshalIndent(request, "", "  ")
+		log.Printf(`%s Request: %s
+      Request Model: %s\n`, i.Provider(), string(bs), string(modelBytes))
+	}
+
 	var iter *gemini.GenerateContentResponseIterator
 
 	if len(request.History) > 0 {
@@ -64,6 +73,13 @@ func (i *Instructor) chatJSONStream(ctx context.Context, request Request, schema
 	if strict {
 		model.ResponseSchema = new(gemini.Schema)
 		convertSchema(schema.Schema, model.ResponseSchema)
+	}
+
+	if i.Verbose() {
+		modelBytes, _ := json.MarshalIndent(model, "", "  ")
+		bs, _ := json.MarshalIndent(request, "", "  ")
+		log.Printf(`%s Request: %s
+      Request Model: %s\n`, i.Provider(), string(bs), string(modelBytes))
 	}
 
 	var iter *gemini.GenerateContentResponseIterator

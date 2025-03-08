@@ -2,9 +2,11 @@ package openai
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"log"
 
 	openai "github.com/sashabaranov/go-openai"
 
@@ -79,6 +81,11 @@ Make sure to return an array with the elements an instance of the JSON, not the 
 func (i *Instructor) createStream(ctx context.Context, request *openai.ChatCompletionRequest, response *openai.ChatCompletionResponse) (<-chan string, error) {
 	request.Stream = true
 	request.StreamOptions.IncludeUsage = true
+
+	if i.Verbose() {
+		bs, _ := json.MarshalIndent(request, "", "  ")
+		log.Printf("%s Request: %s\n", i.Provider(), string(bs))
+	}
 	stream, err := i.CreateChatCompletionStream(ctx, *request)
 	if err != nil {
 		return nil, err

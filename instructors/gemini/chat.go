@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 
 	gemini "github.com/google/generative-ai-go/genai"
 	"github.com/invopop/jsonschema"
@@ -41,6 +42,13 @@ func (i *Instructor) chatToolCall(ctx context.Context, request Request, schema *
 	model.ResponseMIMEType = "application/json"
 	model.SystemInstruction = request.System
 	model.Tools = createTools(schema)
+
+	if i.Verbose() {
+		modelBytes, _ := json.MarshalIndent(model, "", "  ")
+		bs, _ := json.MarshalIndent(request, "", "  ")
+		log.Printf(`%s Request: %s
+      Request Model: %s\n`, i.Provider(), string(bs), string(modelBytes))
+	}
 
 	var (
 		resp *gemini.GenerateContentResponse
@@ -121,6 +129,14 @@ func (i *Instructor) chatJSON(ctx context.Context, request Request, schema *inst
 		model.ResponseSchema = new(gemini.Schema)
 		convertSchema(schema.Schema, model.ResponseSchema)
 	}
+
+	if i.Verbose() {
+		modelBytes, _ := json.MarshalIndent(model, "", "  ")
+		bs, _ := json.MarshalIndent(request, "", "  ")
+		log.Printf(`%s Request: %s
+      Request Model: %s\n`, i.Provider(), string(bs), string(modelBytes))
+	}
+
 	var (
 		resp *gemini.GenerateContentResponse
 		err  error

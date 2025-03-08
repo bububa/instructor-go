@@ -2,9 +2,11 @@ package cohere
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"log"
 
 	cohere "github.com/cohere-ai/cohere-go/v2"
 
@@ -52,6 +54,10 @@ func (i *Instructor) addOrConcatJSONSystemPromptStream(request *cohere.ChatStrea
 }
 
 func (i *Instructor) createStream(ctx context.Context, request *cohere.ChatStreamRequest, response *cohere.NonStreamedChatResponse) (<-chan string, error) {
+	if i.Verbose() {
+		bs, _ := json.MarshalIndent(request, "", "  ")
+		log.Printf("%s Request: %s\n", i.Provider(), string(bs))
+	}
 	stream, err := i.ChatStream(ctx, request)
 	if err != nil {
 		return nil, err

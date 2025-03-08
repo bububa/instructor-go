@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 
 	cohere "github.com/cohere-ai/cohere-go/v2"
 
@@ -36,12 +37,17 @@ func (i *Instructor) Handler(ctx context.Context, request *cohere.ChatRequest, s
 func (i *Instructor) chatToolCall(ctx context.Context, request cohere.ChatRequest, schema *instructor.Schema, response *cohere.NonStreamedChatResponse) (string, error) {
 	request.Tools = []*cohere.Tool{createCohereTools(schema)}
 
+	if i.Verbose() {
+		bs, _ := json.MarshalIndent(request, "", "  ")
+		log.Printf("%s Request: %s\n", i.Provider(), string(bs))
+	}
+
 	resp, err := i.Client.Chat(ctx, &request)
 	if err != nil {
 		return "", err
 	}
-	for _, c := range resp.ToolCalls {
-		toolInput, err := json.Marshal(c.Parameters)
+	if len(resp.ToolCalls) > 0 {
+		toolInput, err := json.Marshal(resp.ToolCalls[0].Parameters)
 		if err != nil {
 			i.EmptyResponseWithResponseUsage(response, resp)
 			return "", err
@@ -51,6 +57,7 @@ func (i *Instructor) chatToolCall(ctx context.Context, request cohere.ChatReques
 			*response = *resp
 		}
 		return string(toolInput), nil
+
 	}
 	i.EmptyResponseWithResponseUsage(response, resp)
 	return "", errors.New("more than 1 tool response at a time is not implemented")
@@ -58,6 +65,11 @@ func (i *Instructor) chatToolCall(ctx context.Context, request cohere.ChatReques
 
 func (i *Instructor) chatJSON(ctx context.Context, request cohere.ChatRequest, schema *instructor.Schema, response *cohere.NonStreamedChatResponse) (string, error) {
 	i.addOrConcatJSONSystemPrompt(&request, schema)
+
+	if i.Verbose() {
+		bs, _ := json.MarshalIndent(request, "", "  ")
+		log.Printf("%s Request: %s\n", i.Provider(), string(bs))
+	}
 
 	resp, err := i.Client.Chat(ctx, &request)
 	if err != nil {

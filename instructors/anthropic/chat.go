@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 
 	anthropic "github.com/liushuangls/go-anthropic/v2"
 
@@ -38,6 +39,11 @@ func (i *Instructor) completionToolCall(ctx context.Context, request anthropic.M
 			InputSchema: function.Parameters,
 		}
 		request.Tools = append(request.Tools, t)
+	}
+
+	if i.Verbose() {
+		bs, _ := json.MarshalIndent(request, "", "  ")
+		log.Printf("%s Request: %s\n", i.Provider(), string(bs))
 	}
 
 	resp, err := i.CreateMessages(ctx, request)
@@ -81,6 +87,11 @@ Make sure to return an instance of the JSON, not the schema itself.
 		request.System = system
 	} else {
 		request.System += system
+	}
+
+	if i.Verbose() {
+		bs, _ := json.MarshalIndent(request, "", "  ")
+		log.Printf("%s Request: %s\n", i.Provider(), string(bs))
 	}
 
 	resp, err := i.CreateMessages(ctx, request)

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 
 	"github.com/bububa/ljson"
 	"github.com/invopop/jsonschema"
@@ -52,8 +53,12 @@ func (i *Instructor) Handler(ctx context.Context, request *openai.ChatCompletion
 func (i *Instructor) chatToolCall(ctx context.Context, request openai.ChatCompletionRequest, schema *instructor.Schema, response *openai.ChatCompletionResponse, strict bool) (string, error) {
 	request.Stream = false
 	request.Tools = createOpenAITools(schema, strict)
+	if i.Verbose() {
+		bs, _ := json.MarshalIndent(request, "", "  ")
+		log.Printf("%s Request: %s\n", i.Provider(), string(bs))
+	}
 
-	resp, err := i.Client.CreateChatCompletion(ctx, request)
+	resp, err := i.CreateChatCompletion(ctx, request)
 	if err != nil {
 		return "", err
 	}
@@ -83,10 +88,10 @@ func (i *Instructor) chatToolCall(ctx context.Context, request openai.ChatComple
 
 	// numTools >= 1
 
-	jsonArray := make([]map[string]interface{}, len(toolCalls))
+	jsonArray := make([]map[string]any, len(toolCalls))
 
 	for idx, toolCall := range toolCalls {
-		var jsonObj map[string]interface{}
+		var jsonObj map[string]any
 		if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &jsonObj); err != nil {
 			i.EmptyResponseWithResponseUsage(response, &resp)
 			return "", err
@@ -116,7 +121,7 @@ func (i *Instructor) chatJSON(ctx context.Context, request openai.ChatCompletion
 		schemaWrapper := ResponseFormatSchemaWrapper{
 			Type:        "object",
 			Required:    []string{structName},
-			Definitions: &schema.Schema.Definitions,
+			Definitions: &schema.Definitions,
 			Properties: &jsonschema.Definitions{
 				structName: schema.Definitions[structName],
 			},
@@ -139,6 +144,10 @@ func (i *Instructor) chatJSON(ctx context.Context, request openai.ChatCompletion
 		request.ResponseFormat = &openai.ChatCompletionResponseFormat{
 			Type: openai.ChatCompletionResponseFormatTypeJSONObject,
 		}
+	}
+	if i.Verbose() {
+		bs, _ := json.MarshalIndent(request, "", "  ")
+		log.Printf("%s Request: %s\n", i.Provider(), string(bs))
 	}
 
 	resp, err := i.CreateChatCompletion(ctx, request)
@@ -164,6 +173,11 @@ func (i *Instructor) chatJSON(ctx context.Context, request openai.ChatCompletion
 func (i *Instructor) chatJSONSchema(ctx context.Context, request openai.ChatCompletionRequest, schema *instructor.Schema, response *openai.ChatCompletionResponse) (string, error) {
 	request.Stream = false
 	request.Messages = internal.Prepend(request.Messages, *createJSONMessage(schema))
+
+	if i.Verbose() {
+		bs, _ := json.MarshalIndent(request, "", "  ")
+		log.Printf("%s Request: %s\n", i.Provider(), string(bs))
+	}
 
 	resp, err := i.CreateChatCompletion(ctx, request)
 	if err != nil {

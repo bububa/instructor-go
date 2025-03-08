@@ -2,6 +2,8 @@ package gemini
 
 import (
 	"context"
+	"encoding/json"
+	"log"
 
 	gemini "github.com/google/generative-ai-go/genai"
 )
@@ -13,6 +15,14 @@ func (i *Instructor) Stream(
 ) (stream <-chan string, err error) {
 	model := i.GenerativeModel(request.Model)
 	model.SystemInstruction = request.System
+
+	if i.Verbose() {
+		modelBytes, _ := json.MarshalIndent(model, "", "  ")
+		bs, _ := json.MarshalIndent(request, "", "  ")
+		log.Printf(`%s Request: %s
+      Request Model: %s\n`, i.Provider(), string(bs), string(modelBytes))
+	}
+
 	var iter *gemini.GenerateContentResponseIterator
 
 	if len(request.History) > 0 {
