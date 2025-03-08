@@ -2,7 +2,9 @@ package anthropic
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"log"
 
 	anthropic "github.com/liushuangls/go-anthropic/v2"
 
@@ -82,6 +84,10 @@ func (i *Instructor) createStream(ctx context.Context, request *anthropic.Messag
 				ch <- *text
 			}
 		},
+	}
+	if i.Verbose() {
+		bs, _ := json.MarshalIndent(request, "", "  ")
+		log.Printf("%s Request: %s\n", i.Provider(), string(bs))
 	}
 	go func() {
 		defer close(ch)
