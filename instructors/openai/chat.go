@@ -116,7 +116,7 @@ func (i *Instructor) chatJSON(ctx context.Context, request openai.ChatCompletion
 	request.Stream = false
 	for idx, msg := range request.Messages {
 		if msg.Role == "system" {
-			request.Messages[idx].Content = fmt.Sprintf("%s\n%s", msg.Content, appendJSONMessage(schema))
+			request.Messages[idx].Content = fmt.Sprintf("%s\n\n#OUTPUT SCHEMA\n%s", msg.Content, appendJSONMessage(schema))
 		}
 	}
 
