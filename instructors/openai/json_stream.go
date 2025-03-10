@@ -52,7 +52,7 @@ func (i *Instructor) chatJSONStream(ctx context.Context, request openai.ChatComp
 	// request.Messages = internal.Prepend(request.Messages, *createJSONMessageStream(schema))
 	for idx, msg := range request.Messages {
 		if msg.Role == "system" {
-			request.Messages[idx].Content = fmt.Sprintf("%s\n%s", msg.Content, appendJSONMessage(schema))
+			request.Messages[idx].Content = fmt.Sprintf("%s\n\n#OUTPUT SCHEMA\n%s", msg.Content, appendJSONMessage(schema))
 		}
 	}
 	// Set JSON mode
@@ -64,7 +64,7 @@ func (i *Instructor) chatJSONSchemaStream(ctx context.Context, request openai.Ch
 	// request.Messages = internal.Prepend(request.Messages, *createJSONMessageStream(schema))
 	for idx, msg := range request.Messages {
 		if msg.Role == "system" {
-			request.Messages[idx].Content = fmt.Sprintf("%s\n%s", msg.Content, appendJSONMessage(schema))
+			request.Messages[idx].Content = fmt.Sprintf("%s\n\n#OUTPUT SCHEMA\n%s", msg.Content, appendJSONMessage(schema))
 		}
 	}
 	return i.createStream(ctx, &request, response)
