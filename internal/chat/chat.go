@@ -44,13 +44,13 @@ func Handler[T any, RESP any](i instructor.ChatInstructor[T, RESP], ctx context.
 			return err
 		}
 
-		text = internal.ExtractJSON(&text)
+		jsText := internal.ExtractJSON(&text)
 		if i.Verbose() {
 			log.Printf("%s Response(attempt:%d): %s\n", i.Provider(), attempt, text)
 		}
 		i.CountUsageFromResponse(resp, usage)
 
-		if err := ljson.Unmarshal([]byte(text), &responseType); err != nil {
+		if err := ljson.Unmarshal([]byte(jsText), &responseType); err != nil {
 			// TODO:
 			// add more sophisticated retry logic (send back json and parse error for model to fix).
 			//
