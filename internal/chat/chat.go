@@ -26,6 +26,7 @@ func Handler[T any, RESP any](i instructor.ChatInstructor[T, RESP], ctx context.
 
 	// keep a running total of usage
 	usage := &instructor.UsageSum{}
+	retErr := errors.New("hit max retry attempts")
 
 	for attempt := 0; attempt <= i.MaxRetries(); attempt++ {
 		if i.Verbose() {
@@ -41,7 +42,7 @@ func Handler[T any, RESP any](i instructor.ChatInstructor[T, RESP], ctx context.
 		if err != nil {
 			// no retry on non-marshalling/validation errors
 			i.EmptyResponseWithResponseUsage(response, resp)
-			return err
+			return errors.Join(retErr, err)
 		}
 
 		jsText := internal.ExtractJSON(&text)
@@ -57,6 +58,7 @@ func Handler[T any, RESP any](i instructor.ChatInstructor[T, RESP], ctx context.
 			if i.Verbose() {
 				log.Printf("Err(attempt:%d): %+v\n", attempt, err)
 			}
+			retErr = errors.Join(retErr, err)
 			// Currently, its just recalling with no new information
 			// or attempt to fix the error with the last generated JSON
 			continue
@@ -71,6 +73,7 @@ func Handler[T any, RESP any](i instructor.ChatInstructor[T, RESP], ctx context.
 				if i.Verbose() {
 					log.Printf("Err(attempt:%d): %+v\n", attempt, err)
 				}
+				retErr = errors.Join(retErr, err)
 
 				continue
 			}
@@ -80,5 +83,5 @@ func Handler[T any, RESP any](i instructor.ChatInstructor[T, RESP], ctx context.
 		return nil
 	}
 	i.EmptyResponseWithUsageSum(response, usage)
-	return errors.New("hit max retry attempts")
+	return retErr
 }
