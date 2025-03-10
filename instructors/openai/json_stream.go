@@ -11,7 +11,6 @@ import (
 	openai "github.com/sashabaranov/go-openai"
 
 	"github.com/bububa/instructor-go"
-	"github.com/bububa/instructor-go/internal"
 	"github.com/bububa/instructor-go/internal/chat"
 )
 
@@ -50,32 +49,44 @@ func (i *Instructor) chatToolCallStream(ctx context.Context, request openai.Chat
 }
 
 func (i *Instructor) chatJSONStream(ctx context.Context, request openai.ChatCompletionRequest, schema *instructor.Schema, response *openai.ChatCompletionResponse) (<-chan string, error) {
-	request.Messages = internal.Prepend(request.Messages, *createJSONMessageStream(schema))
+	// request.Messages = internal.Prepend(request.Messages, *createJSONMessageStream(schema))
+	for idx, msg := range request.Messages {
+		if msg.Role == "system" {
+			request.Messages[idx].Content = fmt.Sprintf("%s\n%s", msg.Content, appendJSONMessage(schema))
+		}
+	}
 	// Set JSON mode
 	request.ResponseFormat = &openai.ChatCompletionResponseFormat{Type: openai.ChatCompletionResponseFormatTypeJSONObject}
 	return i.createStream(ctx, &request, response)
 }
 
 func (i *Instructor) chatJSONSchemaStream(ctx context.Context, request openai.ChatCompletionRequest, schema *instructor.Schema, response *openai.ChatCompletionResponse) (<-chan string, error) {
-	request.Messages = internal.Prepend(request.Messages, *createJSONMessageStream(schema))
+	// request.Messages = internal.Prepend(request.Messages, *createJSONMessageStream(schema))
+	for idx, msg := range request.Messages {
+		if msg.Role == "system" {
+			request.Messages[idx].Content = fmt.Sprintf("%s\n%s", msg.Content, appendJSONMessage(schema))
+		}
+	}
 	return i.createStream(ctx, &request, response)
 }
 
 func createJSONMessageStream(schema *instructor.Schema) *openai.ChatCompletionMessage {
-	message := fmt.Sprintf(`
+	msg := &openai.ChatCompletionMessage{
+		Role:    openai.ChatMessageRoleSystem,
+		Content: appendJSONMessageStream(schema),
+	}
+
+	return msg
+}
+
+func appendJSONMessageStream(schema *instructor.Schema) string {
+	return fmt.Sprintf(`
 Please respond with a JSON array where the elements following JSON schema:
 
 %s
 
 Make sure to return an array with the elements an instance of the JSON, not the schema itself.
 `, schema.String)
-
-	msg := &openai.ChatCompletionMessage{
-		Role:    openai.ChatMessageRoleSystem,
-		Content: message,
-	}
-
-	return msg
 }
 
 func (i *Instructor) createStream(ctx context.Context, request *openai.ChatCompletionRequest, response *openai.ChatCompletionResponse) (<-chan string, error) {
