@@ -172,7 +172,12 @@ func (i *Instructor) chatJSON(ctx context.Context, request openai.ChatCompletion
 
 func (i *Instructor) chatJSONSchema(ctx context.Context, request openai.ChatCompletionRequest, schema *instructor.Schema, response *openai.ChatCompletionResponse) (string, error) {
 	request.Stream = false
-	request.Messages = internal.Prepend(request.Messages, *createJSONMessage(schema))
+	for idx, msg := range request.Messages {
+		if msg.Role == "system" {
+			request.Messages[idx].Content = fmt.Sprintf("%s\n%s", msg.Content, appendJSONMessage(schema))
+		}
+	}
+	// request.Messages = internal.Prepend(request.Messages, *createJSONMessage(schema))
 
 	if i.Verbose() {
 		bs, _ := json.MarshalIndent(request, "", "  ")
@@ -237,20 +242,22 @@ func (i *Instructor) CountUsageFromResponse(response *openai.ChatCompletionRespo
 }
 
 func createJSONMessage(schema *instructor.Schema) *openai.ChatCompletionMessage {
-	message := fmt.Sprintf(`
+	msg := &openai.ChatCompletionMessage{
+		Role:    openai.ChatMessageRoleSystem,
+		Content: appendJSONMessage(schema),
+	}
+
+	return msg
+}
+
+func appendJSONMessage(schema *instructor.Schema) string {
+	return fmt.Sprintf(`
 Please respond with JSON in the following JSON schema:
 
 %s
 
 Make sure to return an instance of the JSON, not the schema itself
 `, schema.String)
-
-	msg := &openai.ChatCompletionMessage{
-		Role:    openai.ChatMessageRoleSystem,
-		Content: message,
-	}
-
-	return msg
 }
 
 func createOpenAITools(schema *instructor.Schema, strict bool) []openai.Tool {
