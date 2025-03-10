@@ -12,7 +12,6 @@ import (
 	openai "github.com/sashabaranov/go-openai"
 
 	"github.com/bububa/instructor-go"
-	"github.com/bububa/instructor-go/internal"
 	"github.com/bububa/instructor-go/internal/chat"
 )
 
@@ -115,7 +114,11 @@ func (i *Instructor) chatJSON(ctx context.Context, request openai.ChatCompletion
 	structName := schema.NameFromRef()
 
 	request.Stream = false
-	request.Messages = internal.Prepend(request.Messages, *createJSONMessage(schema))
+	for idx, msg := range request.Messages {
+		if msg.Role == "system" {
+			request.Messages[idx].Content = fmt.Sprintf("%s\n%s", msg.Content, appendJSONMessage(schema))
+		}
+	}
 
 	if strict {
 		schemaWrapper := ResponseFormatSchemaWrapper{
