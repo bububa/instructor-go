@@ -52,7 +52,7 @@ func (i *Instructor) chatJSONStream(ctx context.Context, request openai.ChatComp
 	// request.Messages = internal.Prepend(request.Messages, *createJSONMessageStream(schema))
 	for idx, msg := range request.Messages {
 		if msg.Role == "system" {
-			request.Messages[idx].Content = fmt.Sprintf("%s\n\n#OUTPUT SCHEMA\n%s", msg.Content, appendJSONMessage(schema))
+			request.Messages[idx].Content = fmt.Sprintf("%s\n\n#OUTPUT SCHEMA\n%s", msg.Content, appendJSONMessageStream(schema))
 		}
 	}
 	// Set JSON mode
@@ -64,29 +64,14 @@ func (i *Instructor) chatJSONSchemaStream(ctx context.Context, request openai.Ch
 	// request.Messages = internal.Prepend(request.Messages, *createJSONMessageStream(schema))
 	for idx, msg := range request.Messages {
 		if msg.Role == "system" {
-			request.Messages[idx].Content = fmt.Sprintf("%s\n\n#OUTPUT SCHEMA\n%s", msg.Content, appendJSONMessage(schema))
+			request.Messages[idx].Content = fmt.Sprintf("%s\n\n#OUTPUT SCHEMA\n%s", msg.Content, appendJSONMessageStream(schema))
 		}
 	}
 	return i.createStream(ctx, &request, response)
 }
 
-func createJSONMessageStream(schema *instructor.Schema) *openai.ChatCompletionMessage {
-	msg := &openai.ChatCompletionMessage{
-		Role:    openai.ChatMessageRoleSystem,
-		Content: appendJSONMessageStream(schema),
-	}
-
-	return msg
-}
-
 func appendJSONMessageStream(schema *instructor.Schema) string {
-	return fmt.Sprintf(`
-Please respond with a JSON array where the elements following JSON schema:
-
-%s
-
-Make sure to return an array with the elements an instance of the JSON, not the schema itself.
-`, schema.String)
+	return fmt.Sprintf("\nPlease respond with a JSON array where the elements following JSON schema:\n```json\n%s\n```\nMake sure to return an array with the elements an instance of the JSON, not the schema itself.\n", schema.String)
 }
 
 func (i *Instructor) createStream(ctx context.Context, request *openai.ChatCompletionRequest, response *openai.ChatCompletionResponse) (<-chan string, error) {

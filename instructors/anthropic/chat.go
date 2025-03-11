@@ -73,21 +73,18 @@ func (i *Instructor) completionToolCall(ctx context.Context, request anthropic.M
 	return "", errors.New("more than 1 tool response at a time is not implemented")
 }
 
-func (i *Instructor) completionJSONSchema(ctx context.Context, request anthropic.MessagesRequest, schema *instructor.Schema, response *anthropic.MessagesResponse) (string, error) {
-	system := fmt.Sprintf(`
-Please responsd with json in the following json_schema:
-
-%s
-
-Make sure to return an instance of the JSON, not the schema itself.
-`, schema.String)
-
-	request.Stream = false
-	if request.System == "" {
-		request.System = system
+func (i *Instructor) appendJSONSchema(req *anthropic.MessagesRequest, schema *instructor.Schema) {
+	system := fmt.Sprintf("\nPlease responsd with json in the following json_schema:\n```json\n%s\n```\nMake sure to return an instance of the JSON, not the schema itself.\n", schema.String)
+	if req.System == "" {
+		req.System = system
 	} else {
-		request.System += system
+		req.System = fmt.Sprintf("%s\n\n#OUTPUT SCHEMA\n%s", req.System, system)
 	}
+}
+
+func (i *Instructor) completionJSONSchema(ctx context.Context, request anthropic.MessagesRequest, schema *instructor.Schema, response *anthropic.MessagesResponse) (string, error) {
+	request.Stream = false
+	i.appendJSONSchema(&request, schema)
 
 	if i.Verbose() {
 		bs, _ := json.MarshalIndent(request, "", "  ")
