@@ -59,6 +59,7 @@ type StreamInstructor[T any, RESP any] interface {
 	Stream(
 		ctx context.Context,
 		request *T,
+		responseType any,
 		response *RESP,
 	) (<-chan string, error)
 }

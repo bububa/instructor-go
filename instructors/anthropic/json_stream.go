@@ -54,13 +54,7 @@ func (i *Instructor) chatToolCallStream(ctx context.Context, request anthropic.M
 
 func (i *Instructor) chatJSONStream(ctx context.Context, request anthropic.MessagesRequest, schema *instructor.Schema, response *anthropic.MessagesResponse) (<-chan string, error) {
 	request.Stream = true
-	system := fmt.Sprintf(`
-Please respond with a JSON array where the elements following JSON schema:
-
-%s
-
-Make sure to return an array with the elements an instance of the JSON, not the schema itself.
-`, schema.String)
+	system := fmt.Sprintf("\nPlease respond with a JSON array where the elements following JSON schema:\n```json\n%s\n```\nMake sure to return an array with the elements an instance of the JSON, not the schema itself.\n", schema.String)
 	if request.System == "" {
 		request.System = system
 	} else {
