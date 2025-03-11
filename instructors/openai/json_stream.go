@@ -76,6 +76,9 @@ func appendJSONMessageStream(schema *instructor.Schema) string {
 
 func (i *Instructor) createStream(ctx context.Context, request *openai.ChatCompletionRequest, response *openai.ChatCompletionResponse) (<-chan string, error) {
 	request.Stream = true
+	if request.StreamOptions == nil {
+		request.StreamOptions = new(openai.StreamOptions)
+	}
 	request.StreamOptions.IncludeUsage = true
 
 	if i.Verbose() {
