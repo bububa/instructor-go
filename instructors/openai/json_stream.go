@@ -103,8 +103,6 @@ func (i *Instructor) createStream(ctx context.Context, request *openai.ChatCompl
 			if err != nil {
 				return
 			}
-			text := resp.Choices[0].Delta.Content
-			ch <- text
 			if resp.Usage != nil && response != nil {
 				response.ID = resp.ID
 				response.Model = resp.Model
@@ -112,6 +110,10 @@ func (i *Instructor) createStream(ctx context.Context, request *openai.ChatCompl
 				response.SystemFingerprint = resp.SystemFingerprint
 				response.PromptFilterResults = resp.PromptFilterResults
 				response.Usage = *resp.Usage
+			}
+			if len(resp.Choices) > 0 {
+				text := resp.Choices[0].Delta.Content
+				ch <- text
 			}
 		}
 	}()
