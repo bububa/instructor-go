@@ -254,7 +254,7 @@ func createJSONMessage(schema *instructor.Schema) *openai.ChatCompletionMessage 
 }
 
 func appendJSONMessage(schema *instructor.Schema) string {
-	return fmt.Sprintf("\nPlease respond with JSON in the following JSON schema:\n```json\n%s\n```Make sure to return an instance of the JSON, not the schema itself\n", schema.String)
+	return fmt.Sprintf("\nPlease respond with JSON in the following JSON schema:\n```json\n%s\n```\nMake sure to return an instance of the JSON, not the schema itself\n", schema.String)
 }
 
 func createOpenAITools(schema *instructor.Schema, strict bool) []openai.Tool {
