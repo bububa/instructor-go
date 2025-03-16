@@ -2,14 +2,22 @@ package yaml
 
 import (
 	"bytes"
+	"reflect"
 
+	"github.com/brianvoe/gofakeit/v7"
+	"github.com/bububa/instructor-go"
 	"gopkg.in/yaml.v3"
 )
 
-type Encoder struct{}
+type Encoder struct {
+	reqType reflect.Type
+}
 
-func NewEncoder() *Encoder {
-	return new(Encoder)
+func NewEncoder(req any) *Encoder {
+	t := reflect.TypeOf(req)
+	return &Encoder{
+		reqType: t,
+	}
 }
 
 func (e *Encoder) Marshal(v any) ([]byte, error) {
@@ -26,7 +34,13 @@ func (e *Encoder) Validate(req any) error {
 }
 
 func (e *Encoder) Context() []byte {
-	bs, err := e.Marshal(nil)
+	instance := reflect.New(e.reqType).Interface()
+	if f, ok := instance.(instructor.Faker); ok {
+		instance = f.Fake()
+	} else {
+		gofakeit.Struct(instance)
+	}
+	bs, err := e.Marshal(instance)
 	if err != nil {
 		return nil
 	}

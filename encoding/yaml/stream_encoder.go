@@ -6,6 +6,8 @@ import (
 	"context"
 	"reflect"
 
+	"github.com/brianvoe/gofakeit/v7"
+	"github.com/bububa/instructor-go"
 	"github.com/go-playground/validator/v10"
 	"gopkg.in/yaml.v3"
 )
@@ -41,14 +43,25 @@ func (e *StreamEncoder) Marshal(req any) ([]byte, error) {
 }
 
 func (e *StreamEncoder) Context() []byte {
-	bs, err := e.Marshal(nil)
-	if err != nil {
-		return nil
-	}
 	var b bytes.Buffer
 	b.WriteString("\nPlease respond with a YAML array where the elements following YAML schema which is seperated by a blank line for each elements:\n")
 	b.WriteString("```yaml\n")
-	b.Write(bs)
+	for i := range 3 {
+		if i > 0 {
+			b.WriteString("\n\n")
+		}
+		instance := reflect.New(e.reqType).Interface()
+		if f, ok := instance.(instructor.Faker); ok {
+			instance = f.Fake()
+		} else {
+			gofakeit.Struct(instance)
+		}
+		bs, err := e.Marshal(instance)
+		if err != nil {
+			return nil
+		}
+		b.Write(bs)
+	}
 	b.WriteString("\n```")
 	b.WriteString("Make sure to return an array with the elements an instance of the YAML, not the schema itself.\n")
 	return b.Bytes()
