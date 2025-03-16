@@ -48,7 +48,7 @@ func Handler[T any, RESP any](i instructor.ChatInstructor[T, RESP], ctx context.
 		}
 		i.CountUsageFromResponse(resp, usage)
 
-		if err := enc.Unmarshal([]byte(text), &responseType); err != nil {
+		if err := enc.Unmarshal([]byte(text), responseType); err != nil {
 			if i.Verbose() {
 				log.Printf("Err(attempt:%d): %+v\n", attempt, err)
 			}
