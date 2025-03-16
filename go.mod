@@ -24,6 +24,7 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.36.3 // indirect
 	github.com/aws/smithy-go v1.22.3 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
+	github.com/brianvoe/gofakeit/v7 v7.2.1 // indirect
 	github.com/buger/jsonparser v1.1.1 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.8 // indirect

@@ -17,3 +17,7 @@ type StreamEncoder interface {
 	Context() []byte
 	EnableValidate()
 }
+
+type Faker interface {
+	Fake() any
+}
