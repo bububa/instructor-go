@@ -8,6 +8,6 @@ const (
 	ModeJSON           Mode = "json_mode"
 	ModeJSONStrict     Mode = "json_strict_mode"
 	ModeJSONSchema     Mode = "json_schema_mode"
-	ModeMarkdownJSON   Mode = "markdown_json_mode"
+	ModeCustom         Mode = "custom_mode"
 	ModeDefault        Mode = ModeJSONSchema
 )

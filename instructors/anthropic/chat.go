@@ -10,6 +10,7 @@ import (
 	anthropic "github.com/liushuangls/go-anthropic/v2"
 
 	"github.com/bububa/instructor-go"
+	jsonenc "github.com/bububa/instructor-go/encoding/json"
 	"github.com/bububa/instructor-go/internal/chat"
 )
 
@@ -17,18 +18,22 @@ func (i *Instructor) Chat(ctx context.Context, request *anthropic.MessagesReques
 	return chat.Handler(i, ctx, request, responseType, response)
 }
 
-func (i *Instructor) Handler(ctx context.Context, request *anthropic.MessagesRequest, schema *instructor.Schema, response *anthropic.MessagesResponse) (string, error) {
+func (i *Instructor) Handler(ctx context.Context, request *anthropic.MessagesRequest, response *anthropic.MessagesResponse) (string, error) {
 	switch i.Mode() {
 	case instructor.ModeToolCall, instructor.ModeToolCallStrict:
-		return i.completionToolCall(ctx, *request, schema, response)
-	case instructor.ModeJSONSchema, instructor.ModeJSON:
-		return i.completionJSONSchema(ctx, *request, schema, response)
+		return i.completionToolCall(ctx, *request, response)
 	default:
-		return "", fmt.Errorf("mode '%s' is not supported for %s", i.Mode(), i.Provider())
+		return i.completion(ctx, *request, response)
 	}
 }
 
-func (i *Instructor) completionToolCall(ctx context.Context, request anthropic.MessagesRequest, schema *instructor.Schema, response *anthropic.MessagesResponse) (string, error) {
+func (i *Instructor) completionToolCall(ctx context.Context, request anthropic.MessagesRequest, response *anthropic.MessagesResponse) (string, error) {
+	var schema *instructor.Schema
+	if enc, ok := i.Encoder().(*jsonenc.Encoder); ok {
+		schema = enc.Schema()
+	} else {
+		return "", errors.New("encoder must be JSON Encoder")
+	}
 	request.Stream = false
 	request.Tools = []anthropic.ToolDefinition{}
 
@@ -73,18 +78,15 @@ func (i *Instructor) completionToolCall(ctx context.Context, request anthropic.M
 	return "", errors.New("more than 1 tool response at a time is not implemented")
 }
 
-func (i *Instructor) appendJSONSchema(req *anthropic.MessagesRequest, schema *instructor.Schema) {
-	system := fmt.Sprintf("\nPlease responsd with json in the following json_schema:\n```json\n%s\n```\nMake sure to return an instance of the JSON, not the schema itself.\n", schema.String)
-	if req.System == "" {
-		req.System = system
-	} else {
-		req.System = fmt.Sprintf("%s\n\n#OUTPUT SCHEMA\n%s", req.System, system)
-	}
-}
-
-func (i *Instructor) completionJSONSchema(ctx context.Context, request anthropic.MessagesRequest, schema *instructor.Schema, response *anthropic.MessagesResponse) (string, error) {
+func (i *Instructor) completion(ctx context.Context, request anthropic.MessagesRequest, response *anthropic.MessagesResponse) (string, error) {
 	request.Stream = false
-	i.appendJSONSchema(&request, schema)
+	if bs := i.Encoder().Context(); bs != nil {
+		if request.System == "" {
+			request.System = string(bs)
+		} else {
+			request.System = fmt.Sprintf("%s\n\n#OUTPUT SCHEMA\n%s", request.System, bs)
+		}
+	}
 
 	if i.Verbose() {
 		bs, _ := json.MarshalIndent(request, "", "  ")

@@ -10,6 +10,7 @@ import (
 	cohere "github.com/cohere-ai/cohere-go/v2"
 
 	"github.com/bububa/instructor-go"
+	jsonenc "github.com/bububa/instructor-go/encoding/json"
 	"github.com/bububa/instructor-go/internal"
 	"github.com/bububa/instructor-go/internal/chat"
 )
@@ -23,18 +24,24 @@ func (i *Instructor) Chat(
 	return chat.Handler(i, ctx, request, responseType, response)
 }
 
-func (i *Instructor) Handler(ctx context.Context, request *cohere.ChatRequest, schema *instructor.Schema, response *cohere.NonStreamedChatResponse) (string, error) {
+func (i *Instructor) Handler(ctx context.Context, request *cohere.ChatRequest, response *cohere.NonStreamedChatResponse) (string, error) {
 	switch i.Mode() {
 	case instructor.ModeToolCall, instructor.ModeToolCallStrict:
-		return i.chatToolCall(ctx, *request, schema, response)
-	case instructor.ModeJSON, instructor.ModeJSONSchema:
-		return i.chatJSON(ctx, *request, schema, response)
+		return i.chatToolCall(ctx, *request, response)
+	case instructor.ModeJSON, instructor.ModeJSONSchema, instructor.ModeJSONStrict:
+		return i.completion(ctx, *request, response)
 	default:
 		return "", fmt.Errorf("mode '%s' is not supported for %s", i.Mode(), i.Provider())
 	}
 }
 
-func (i *Instructor) chatToolCall(ctx context.Context, request cohere.ChatRequest, schema *instructor.Schema, response *cohere.NonStreamedChatResponse) (string, error) {
+func (i *Instructor) chatToolCall(ctx context.Context, request cohere.ChatRequest, response *cohere.NonStreamedChatResponse) (string, error) {
+	var schema *instructor.Schema
+	if enc, ok := i.Encoder().(*jsonenc.Encoder); ok {
+		schema = enc.Schema()
+	} else {
+		return "", errors.New("encoder must be JSON Encoder")
+	}
 	request.Tools = []*cohere.Tool{createCohereTools(schema)}
 
 	if i.Verbose() {
@@ -63,8 +70,14 @@ func (i *Instructor) chatToolCall(ctx context.Context, request cohere.ChatReques
 	return "", errors.New("more than 1 tool response at a time is not implemented")
 }
 
-func (i *Instructor) chatJSON(ctx context.Context, request cohere.ChatRequest, schema *instructor.Schema, response *cohere.NonStreamedChatResponse) (string, error) {
-	i.addOrConcatJSONSystemPrompt(&request, schema)
+func (i *Instructor) completion(ctx context.Context, request cohere.ChatRequest, response *cohere.NonStreamedChatResponse) (string, error) {
+	if bs := i.Encoder().Context(); bs != nil {
+		if system := request.Preamble; system == nil {
+			request.Preamble = internal.ToPtr(string(bs))
+		} else {
+			request.Preamble = internal.ToPtr(fmt.Sprintf("%s\n\n#OUTPUT SCHEMA\n%s", *system, string(bs)))
+		}
+	}
 
 	if i.Verbose() {
 		bs, _ := json.MarshalIndent(request, "", "  ")
@@ -77,16 +90,6 @@ func (i *Instructor) chatJSON(ctx context.Context, request cohere.ChatRequest, s
 	}
 	*response = *resp
 	return resp.Text, nil
-}
-
-func (i *Instructor) addOrConcatJSONSystemPrompt(request *cohere.ChatRequest, schema *instructor.Schema) {
-	schemaPrompt := fmt.Sprintf("```json!Please respond with JSON in the following JSON schema - make sure to return an instance of the JSON, not the schema itself: %s ", schema.String)
-
-	if request.Preamble == nil {
-		request.Preamble = &schemaPrompt
-	} else {
-		request.Preamble = internal.ToPtr(*request.Preamble + "\n" + schemaPrompt)
-	}
 }
 
 func (i *Instructor) EmptyResponseWithUsageSum(ret *cohere.NonStreamedChatResponse, usage *instructor.UsageSum) {

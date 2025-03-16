@@ -2,10 +2,11 @@ package anthropic
 
 import (
 	"context"
-	"reflect"
+	"fmt"
 
-	"github.com/bububa/instructor-go"
 	anthropic "github.com/liushuangls/go-anthropic/v2"
+
+	"github.com/bububa/instructor-go/encoding"
 )
 
 func (i *Instructor) Stream(
@@ -15,14 +16,21 @@ func (i *Instructor) Stream(
 	response *anthropic.MessagesResponse,
 ) (stream <-chan string, err error) {
 	req := *request
-	if (i.Mode() == instructor.ModeJSON || i.Mode() == instructor.ModeJSONSchema) && responseType != nil {
-		t := reflect.TypeOf(responseType)
-
-		schema, err := instructor.NewSchema(t)
-		if err != nil {
-			return nil, err
+	if responseType != nil {
+		if i.Encoder() == nil {
+			if enc, err := encoding.PredefinedEncoder(i.Mode(), responseType); err != nil {
+				return nil, err
+			} else {
+				i.SetEncoder(enc)
+			}
 		}
-		i.appendJSONSchema(&req, schema)
+		if bs := i.Encoder().Context(); bs != nil {
+			if req.System == "" {
+				req.System = string(bs)
+			} else {
+				req.System = fmt.Sprintf("%s\n\n#OUTPUT SCHEMA\n%s", req.System, bs)
+			}
+		}
 	}
 	stream, err = i.createStream(ctx, &req, response)
 	if err != nil {

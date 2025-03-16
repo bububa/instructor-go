@@ -12,6 +12,7 @@ import (
 	openai "github.com/sashabaranov/go-openai"
 
 	"github.com/bububa/instructor-go"
+	jsonenc "github.com/bububa/instructor-go/encoding/json"
 	"github.com/bububa/instructor-go/internal/chat"
 )
 
@@ -32,24 +33,28 @@ func (i *Instructor) Chat(
 	return chat.Handler(i, ctx, request, responseType, response)
 }
 
-func (i *Instructor) Handler(ctx context.Context, request *openai.ChatCompletionRequest, schema *instructor.Schema, response *openai.ChatCompletionResponse) (string, error) {
+func (i *Instructor) Handler(ctx context.Context, request *openai.ChatCompletionRequest, response *openai.ChatCompletionResponse) (string, error) {
 	switch i.Mode() {
 	case instructor.ModeToolCall:
-		return i.chatToolCall(ctx, *request, schema, response, false)
+		return i.chatToolCall(ctx, *request, response, false)
 	case instructor.ModeToolCallStrict:
-		return i.chatToolCall(ctx, *request, schema, response, true)
+		return i.chatToolCall(ctx, *request, response, true)
 	case instructor.ModeJSON:
-		return i.chatJSON(ctx, *request, schema, response, false)
+		return i.chatJSON(ctx, *request, response, false)
 	case instructor.ModeJSONStrict:
-		return i.chatJSON(ctx, *request, schema, response, true)
-	case instructor.ModeJSONSchema:
-		return i.chatJSONSchema(ctx, *request, schema, response)
+		return i.chatJSON(ctx, *request, response, true)
 	default:
-		return "", fmt.Errorf("mode '%s' is not supported for %s", i.Mode(), i.Provider())
+		return i.chatCompletion(ctx, *request, response)
 	}
 }
 
-func (i *Instructor) chatToolCall(ctx context.Context, request openai.ChatCompletionRequest, schema *instructor.Schema, response *openai.ChatCompletionResponse, strict bool) (string, error) {
+func (i *Instructor) chatToolCall(ctx context.Context, request openai.ChatCompletionRequest, response *openai.ChatCompletionResponse, strict bool) (string, error) {
+	var schema *instructor.Schema
+	if enc, ok := i.Encoder().(*jsonenc.Encoder); ok {
+		schema = enc.Schema()
+	} else {
+		return "", errors.New("encoder must be JSON Encoder")
+	}
 	request.Stream = false
 	request.Tools = createOpenAITools(schema, strict)
 	if i.Verbose() {
@@ -110,13 +115,22 @@ func (i *Instructor) chatToolCall(ctx context.Context, request openai.ChatComple
 	return string(resultJSON), nil
 }
 
-func (i *Instructor) chatJSON(ctx context.Context, request openai.ChatCompletionRequest, schema *instructor.Schema, response *openai.ChatCompletionResponse, strict bool) (string, error) {
+func (i *Instructor) chatJSON(ctx context.Context, request openai.ChatCompletionRequest, response *openai.ChatCompletionResponse, strict bool) (string, error) {
+	var schema *instructor.Schema
+	if enc, ok := i.Encoder().(*jsonenc.Encoder); ok {
+		schema = enc.Schema()
+	} else {
+		return "", errors.New("encoder must be JSON Encoder")
+	}
 	structName := schema.NameFromRef()
 
 	request.Stream = false
 	for idx, msg := range request.Messages {
 		if msg.Role == "system" {
-			request.Messages[idx].Content = fmt.Sprintf("%s\n\n#OUTPUT SCHEMA\n%s", msg.Content, appendJSONMessage(schema))
+			bs := i.Encoder().Context()
+			if bs != nil {
+				request.Messages[idx].Content = fmt.Sprintf("%s\n\n#OUTPUT SCHEMA\n%s", msg.Content, string(bs))
+			}
 		}
 	}
 
@@ -173,11 +187,14 @@ func (i *Instructor) chatJSON(ctx context.Context, request openai.ChatCompletion
 	return text, nil
 }
 
-func (i *Instructor) chatJSONSchema(ctx context.Context, request openai.ChatCompletionRequest, schema *instructor.Schema, response *openai.ChatCompletionResponse) (string, error) {
+func (i *Instructor) chatCompletion(ctx context.Context, request openai.ChatCompletionRequest, response *openai.ChatCompletionResponse) (string, error) {
 	request.Stream = false
 	for idx, msg := range request.Messages {
 		if msg.Role == "system" {
-			request.Messages[idx].Content = fmt.Sprintf("%s\n%s", msg.Content, appendJSONMessage(schema))
+			bs := i.Encoder().Context()
+			if bs != nil {
+				request.Messages[idx].Content = fmt.Sprintf("%s\n\n#OUTPUT SCHEMA\n%s", msg.Content, string(bs))
+			}
 		}
 	}
 	// request.Messages = internal.Prepend(request.Messages, *createJSONMessage(schema))
@@ -242,15 +259,6 @@ func (i *Instructor) CountUsageFromResponse(response *openai.ChatCompletionRespo
 	usage.InputTokens += response.Usage.PromptTokens
 	usage.OutputTokens += response.Usage.CompletionTokens
 	usage.TotalTokens += response.Usage.TotalTokens
-}
-
-func createJSONMessage(schema *instructor.Schema) *openai.ChatCompletionMessage {
-	msg := &openai.ChatCompletionMessage{
-		Role:    openai.ChatMessageRoleSystem,
-		Content: appendJSONMessage(schema),
-	}
-
-	return msg
 }
 
 func appendJSONMessage(schema *instructor.Schema) string {

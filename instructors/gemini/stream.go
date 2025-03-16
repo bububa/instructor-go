@@ -3,12 +3,10 @@ package gemini
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
-	"reflect"
 
-	"github.com/bububa/instructor-go"
-	"github.com/bububa/instructor-go/internal"
+	"github.com/bububa/instructor-go/encoding"
+	jsonenc "github.com/bububa/instructor-go/encoding/json"
 	gemini "github.com/google/generative-ai-go/genai"
 )
 
@@ -29,15 +27,22 @@ func (i *Instructor) Stream(
 	}
 
 	req := *request
-	if (i.Mode() == instructor.ModeJSON || i.Mode() == instructor.ModeJSONSchema) && responseType != nil {
-		t := reflect.TypeOf(responseType)
-
-		schema, err := instructor.NewSchema(t)
-		if err != nil {
-			return nil, err
+	if responseType != nil {
+		if i.Encoder() == nil {
+			if enc, err := encoding.PredefinedEncoder(i.Mode(), responseType); err != nil {
+				return nil, err
+			} else {
+				i.SetEncoder(enc)
+			}
 		}
-
-		req.Parts = internal.Prepend(request.Parts, createStreamJSONMessage(schema))
+		if bs := i.Encoder().Context(); bs != nil {
+			req.Parts = append(req.Parts, gemini.Text(string(bs)))
+		}
+		if _, isJSON := i.Encoder().(*jsonenc.Encoder); isJSON {
+			model.ResponseMIMEType = "application/json"
+		} else {
+			model.ResponseMIMEType = "text/plain"
+		}
 	}
 
 	var iter *gemini.GenerateContentResponseIterator
@@ -50,8 +55,4 @@ func (i *Instructor) Stream(
 		iter = model.GenerateContentStream(ctx, request.Parts...)
 	}
 	return i.createStream(ctx, iter, response)
-}
-
-func createStreamJSONMessage(schema *instructor.Schema) gemini.Part {
-	return gemini.Text(fmt.Sprintf("\nPlease respond with a JSON array where the elements following JSON schema:\n```json\n%s\n```\nMake sure to return an array with the elements an instance of the JSON, not the schema itself.\n", schema.String))
 }

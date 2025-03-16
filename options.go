@@ -11,6 +11,8 @@ type Option func(o *Options)
 type Options struct {
 	provider   Provider
 	mode       Mode
+	enc        Encoder
+	streamEnc  StreamEncoder
 	maxRetries int
 	validate   bool
 	verbose    bool
@@ -33,6 +35,18 @@ func WithProvider(provider Provider) Option {
 func WithMode(mode Mode) Option {
 	return func(o *Options) {
 		o.mode = mode
+	}
+}
+
+func WithEncoder(enc Encoder) Option {
+	return func(o *Options) {
+		o.enc = enc
+	}
+}
+
+func WithStreamEncoder(enc StreamEncoder) Option {
+	return func(o *Options) {
+		o.streamEnc = enc
 	}
 }
 
@@ -60,6 +74,22 @@ func (i Options) Provider() Provider {
 
 func (i Options) Mode() Mode {
 	return i.mode
+}
+
+func (i *Options) SetEncoder(enc Encoder) {
+	i.enc = enc
+}
+
+func (i *Options) SetStreamEncoder(enc StreamEncoder) {
+	i.streamEnc = enc
+}
+
+func (i Options) Encoder() Encoder {
+	return i.enc
+}
+
+func (i Options) StreamEncoder() StreamEncoder {
+	return i.streamEnc
 }
 
 func (i Options) MaxRetries() int {

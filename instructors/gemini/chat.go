@@ -4,14 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log"
 
 	gemini "github.com/google/generative-ai-go/genai"
 	"github.com/invopop/jsonschema"
 
 	"github.com/bububa/instructor-go"
-	"github.com/bububa/instructor-go/internal"
+	jsonenc "github.com/bububa/instructor-go/encoding/json"
 	"github.com/bububa/instructor-go/internal/chat"
 )
 
@@ -24,20 +23,24 @@ func (i *Instructor) Chat(
 	return chat.Handler(i, ctx, request, responseType, response)
 }
 
-func (i *Instructor) Handler(ctx context.Context, request *Request, schema *instructor.Schema, response *gemini.GenerateContentResponse) (string, error) {
+func (i *Instructor) Handler(ctx context.Context, request *Request, response *gemini.GenerateContentResponse) (string, error) {
 	switch i.Mode() {
 	case instructor.ModeToolCall, instructor.ModeToolCallStrict:
-		return i.chatToolCall(ctx, *request, schema, response)
-	case instructor.ModeJSON:
-		return i.chatJSON(ctx, *request, schema, response, false)
-	case instructor.ModeJSONStrict, instructor.ModeJSONSchema:
-		return i.chatJSON(ctx, *request, schema, response, true)
+		return i.chatToolCall(ctx, *request, response)
+	case instructor.ModeJSONStrict:
+		return i.completion(ctx, *request, response, true)
 	default:
-		return "", fmt.Errorf("mode '%s' is not supported for %s", i.Mode(), i.Provider())
+		return i.completion(ctx, *request, response, false)
 	}
 }
 
-func (i *Instructor) chatToolCall(ctx context.Context, request Request, schema *instructor.Schema, response *gemini.GenerateContentResponse) (string, error) {
+func (i *Instructor) chatToolCall(ctx context.Context, request Request, response *gemini.GenerateContentResponse) (string, error) {
+	var schema *instructor.Schema
+	if enc, ok := i.Encoder().(*jsonenc.Encoder); ok {
+		schema = enc.Schema()
+	} else {
+		return "", errors.New("encoder must be JSON Encoder")
+	}
 	model := i.GenerativeModel(request.Model)
 	model.ResponseMIMEType = "application/json"
 	model.SystemInstruction = request.System
@@ -101,7 +104,7 @@ func (i *Instructor) chatToolCall(ctx context.Context, request Request, schema *
 		return string(resultJSON), nil
 	}
 
-	jsonArray := make([]map[string]interface{}, len(toolCalls))
+	jsonArray := make([]map[string]any, len(toolCalls))
 
 	for idx, toolCall := range toolCalls {
 		jsonArray[idx] = toolCall.Args
@@ -119,13 +122,24 @@ func (i *Instructor) chatToolCall(ctx context.Context, request Request, schema *
 	return string(resultJSON), nil
 }
 
-func (i *Instructor) chatJSON(ctx context.Context, request Request, schema *instructor.Schema, response *gemini.GenerateContentResponse, strict bool) (string, error) {
-	request.Parts = internal.Prepend(request.Parts, createJSONMessage(schema))
+func (i *Instructor) completion(ctx context.Context, request Request, response *gemini.GenerateContentResponse, strict bool) (string, error) {
+	if bs := i.Encoder().Context(); bs != nil {
+		request.Parts = append(request.Parts, gemini.Text(string(bs)))
+	}
 
 	model := i.GenerativeModel(request.Model)
-	model.ResponseMIMEType = "application/json"
+	enc, isJSON := i.Encoder().(*jsonenc.Encoder)
+	if isJSON {
+		model.ResponseMIMEType = "application/json"
+	} else {
+		model.ResponseMIMEType = "text/plain"
+	}
 	model.SystemInstruction = request.System
 	if strict {
+		if !isJSON {
+			return "", errors.New("encoder must be JSON Encoder")
+		}
+		schema := enc.Schema()
 		model.ResponseSchema = new(gemini.Schema)
 		convertSchema(schema.Schema, model.ResponseSchema)
 	}
@@ -214,16 +228,6 @@ func (i *Instructor) CountUsageFromResponse(response *gemini.GenerateContentResp
 	usage.InputTokens += int(response.UsageMetadata.PromptTokenCount)
 	usage.OutputTokens += int(response.UsageMetadata.CandidatesTokenCount)
 	usage.TotalTokens += int(response.UsageMetadata.TotalTokenCount)
-}
-
-func createJSONMessage(schema *instructor.Schema) gemini.Part {
-	return gemini.Text(fmt.Sprintf(`
-Please respond with JSON in the following JSON schema:
-
-%s
-
-Make sure to return an instance of the JSON, not the schema itself
-`, schema.String))
 }
 
 func convertSchema(src *jsonschema.Schema, dist *gemini.Schema) {

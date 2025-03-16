@@ -3,11 +3,11 @@ package cohere
 import (
 	"context"
 	"fmt"
-	"reflect"
 
-	"github.com/bububa/instructor-go"
-	"github.com/bububa/instructor-go/internal"
 	cohere "github.com/cohere-ai/cohere-go/v2"
+
+	"github.com/bububa/instructor-go/encoding"
+	"github.com/bububa/instructor-go/internal"
 )
 
 func (i *Instructor) Stream(
@@ -17,14 +17,21 @@ func (i *Instructor) Stream(
 	response *cohere.NonStreamedChatResponse,
 ) (<-chan string, error) {
 	req := *request
-	if (i.Mode() == instructor.ModeJSON || i.Mode() == instructor.ModeJSONSchema) && responseType != nil {
-		t := reflect.TypeOf(responseType)
-
-		schema, err := instructor.NewSchema(t)
-		if err != nil {
-			return nil, err
+	if responseType != nil {
+		if i.Encoder() == nil {
+			if enc, err := encoding.PredefinedEncoder(i.Mode(), responseType); err != nil {
+				return nil, err
+			} else {
+				i.SetEncoder(enc)
+			}
 		}
-		i.addOrConcatStreamJSONSystemPrompt(&req, schema)
+		if bs := i.Encoder().Context(); bs != nil {
+			if system := req.Preamble; system == nil {
+				req.Preamble = internal.ToPtr(string(bs))
+			} else {
+				req.Preamble = internal.ToPtr(fmt.Sprintf("%s\n\n#OUTPUT SCHEMA\n%s", *system, string(bs)))
+			}
+		}
 	}
 	stream, err := i.createStream(ctx, &req, response)
 	if err != nil {
@@ -32,14 +39,4 @@ func (i *Instructor) Stream(
 	}
 
 	return stream, err
-}
-
-func (i *Instructor) addOrConcatStreamJSONSystemPrompt(request *cohere.ChatStreamRequest, schema *instructor.Schema) {
-	schemaPrompt := fmt.Sprintf("```json!Please respond with JSON in the following JSON schema - make sure to return an instance of the JSON, not the schema itself: %s ", schema.String)
-
-	if request.Preamble == nil {
-		request.Preamble = &schemaPrompt
-	} else {
-		request.Preamble = internal.ToPtr(*request.Preamble + "\n" + schemaPrompt)
-	}
 }

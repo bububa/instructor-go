@@ -3,22 +3,24 @@ package anthropic
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 
 	anthropic "github.com/liushuangls/go-anthropic/v2"
 
 	"github.com/bububa/instructor-go"
+	jsonenc "github.com/bububa/instructor-go/encoding/json"
 	"github.com/bububa/instructor-go/internal/chat"
 )
 
-func (i *Instructor) JSONStream(
+func (i *Instructor) SchemaStream(
 	ctx context.Context,
 	request *anthropic.MessagesRequest,
 	responseType any,
 	response *anthropic.MessagesResponse,
 ) (stream <-chan any, err error) {
-	stream, err = chat.JSONStreamHandler(i, ctx, request, responseType, response)
+	stream, err = chat.SchemaStreamHandler(i, ctx, request, responseType, response)
 	if err != nil {
 		return nil, err
 	}
@@ -26,18 +28,24 @@ func (i *Instructor) JSONStream(
 	return stream, err
 }
 
-func (i *Instructor) JSONStreamHandler(ctx context.Context, request *anthropic.MessagesRequest, schema *instructor.Schema, response *anthropic.MessagesResponse) (<-chan string, error) {
+func (i *Instructor) SchemaStreamHandler(ctx context.Context, request *anthropic.MessagesRequest, response *anthropic.MessagesResponse) (<-chan string, error) {
 	switch i.Mode() {
 	case instructor.ModeToolCall, instructor.ModeToolCallStrict:
-		return i.chatToolCallStream(ctx, *request, schema, response)
+		return i.chatToolCallStream(ctx, *request, response)
 	case instructor.ModeJSON, instructor.ModeJSONSchema:
-		return i.chatJSONStream(ctx, *request, schema, response)
+		return i.chatSchemaStream(ctx, *request, response)
 	default:
 		return nil, fmt.Errorf("mode '%s' is not supported for %s", i.Mode(), i.Provider())
 	}
 }
 
-func (i *Instructor) chatToolCallStream(ctx context.Context, request anthropic.MessagesRequest, schema *instructor.Schema, response *anthropic.MessagesResponse) (<-chan string, error) {
+func (i *Instructor) chatToolCallStream(ctx context.Context, request anthropic.MessagesRequest, response *anthropic.MessagesResponse) (<-chan string, error) {
+	var schema *instructor.Schema
+	if enc, ok := i.StreamEncoder().(*jsonenc.StreamEncoder); ok {
+		schema = enc.Schema()
+	} else {
+		return nil, errors.New("encoder must be JSON Encoder")
+	}
 	request.Stream = true
 	request.Tools = []anthropic.ToolDefinition{}
 
@@ -52,13 +60,14 @@ func (i *Instructor) chatToolCallStream(ctx context.Context, request anthropic.M
 	return i.createStream(ctx, &request, response)
 }
 
-func (i *Instructor) chatJSONStream(ctx context.Context, request anthropic.MessagesRequest, schema *instructor.Schema, response *anthropic.MessagesResponse) (<-chan string, error) {
+func (i *Instructor) chatSchemaStream(ctx context.Context, request anthropic.MessagesRequest, response *anthropic.MessagesResponse) (<-chan string, error) {
 	request.Stream = true
-	system := fmt.Sprintf("\nPlease respond with a JSON array where the elements following JSON schema:\n```json\n%s\n```\nMake sure to return an array with the elements an instance of the JSON, not the schema itself.\n", schema.String)
-	if request.System == "" {
-		request.System = system
-	} else {
-		request.System += system
+	if bs := i.StreamEncoder().Context(); bs != nil {
+		if request.System == "" {
+			request.System = string(bs)
+		} else {
+			request.System = fmt.Sprintf("%s\n\n#OUTPUT SCHEMA\n%s", request.System, bs)
+		}
 	}
 	return i.createStream(ctx, &request, response)
 }

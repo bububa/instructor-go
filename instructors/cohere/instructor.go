@@ -13,9 +13,9 @@ type Instructor struct {
 }
 
 var (
-	_ instructor.ChatInstructor[cohere.ChatRequest, cohere.NonStreamedChatResponse]             = (*Instructor)(nil)
-	_ instructor.JSONStreamInstructor[cohere.ChatStreamRequest, cohere.NonStreamedChatResponse] = (*Instructor)(nil)
-	_ instructor.StreamInstructor[cohere.ChatStreamRequest, cohere.NonStreamedChatResponse]     = (*Instructor)(nil)
+	_ instructor.ChatInstructor[cohere.ChatRequest, cohere.NonStreamedChatResponse]               = (*Instructor)(nil)
+	_ instructor.SchemaStreamInstructor[cohere.ChatStreamRequest, cohere.NonStreamedChatResponse] = (*Instructor)(nil)
+	_ instructor.StreamInstructor[cohere.ChatStreamRequest, cohere.NonStreamedChatResponse]       = (*Instructor)(nil)
 )
 
 func New(client *cohereClient.Client, opts ...instructor.Option) *Instructor {
