@@ -6,8 +6,9 @@ import (
 	"encoding/json"
 	"reflect"
 
-	"github.com/bububa/instructor-go"
 	"github.com/go-playground/validator/v10"
+
+	"github.com/bububa/instructor-go"
 )
 
 type StreamWrapper[T any] struct {
