@@ -9,6 +9,11 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+var (
+	IGNORE_PREFIX = []byte("```yaml")
+	IGNORE_SUFFIX = []byte("```")
+)
+
 type Encoder struct {
 	reqType reflect.Type
 }
@@ -45,15 +50,18 @@ func (e *Encoder) Context() []byte {
 		return nil
 	}
 	var b bytes.Buffer
-	b.WriteString("\nPlease respond with YAML in the following YAML schema:\n")
+	b.WriteString("\nPlease respond with YAML in the following YAML schema:\n\n")
 	b.WriteString("```yaml\n")
 	b.Write(bs)
-	b.WriteString("\n```")
-	b.WriteString("Make sure to return an instance of the YAML, not the schema itself\n")
+	b.WriteString("```")
+	b.WriteString("\nMake sure to return an instance of the YAML, not the schema itself\n")
 	return b.Bytes()
 }
 
 // cleanup the JSON by trimming prefixes and postfixes
 func cleanup(bs []byte) []byte {
+	bs = bytes.TrimSpace(bs)
+	bs = bytes.TrimPrefix(bs, IGNORE_PREFIX)
+	bs = bytes.TrimSuffix(bs, IGNORE_SUFFIX)
 	return bytes.TrimSpace(bs)
 }

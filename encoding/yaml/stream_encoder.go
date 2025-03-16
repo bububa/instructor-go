@@ -44,8 +44,7 @@ func (e *StreamEncoder) Marshal(req any) ([]byte, error) {
 
 func (e *StreamEncoder) Context() []byte {
 	var b bytes.Buffer
-	b.WriteString("\nPlease respond with a YAML array where the elements following YAML schema which is seperated by a blank line for each elements:\n")
-	b.WriteString("```yaml\n")
+	b.WriteString("\nPlease respond with a YAML array where the elements following YAML schema which is seperated by a blank line for each elements:\n\n")
 	for i := range 3 {
 		if i > 0 {
 			b.WriteString("\n\n")
@@ -62,8 +61,7 @@ func (e *StreamEncoder) Context() []byte {
 		}
 		b.Write(bs)
 	}
-	b.WriteString("\n```")
-	b.WriteString("Make sure to return an array with the elements an instance of the YAML, not the schema itself.\n")
+	b.WriteString("\nMake sure to return an array with the elements an instance of the YAML, not the schema itself.\n")
 	return b.Bytes()
 }
 
@@ -119,6 +117,8 @@ func (e *StreamEncoder) processBuffer(parsedChan chan<- any) {
 				}
 			}
 			block.Reset()
+		} else if bytes.Equal(trimmed, IGNORE_PREFIX) || bytes.Equal(trimmed, IGNORE_SUFFIX) {
+			continue
 		} else {
 			block.Write(bs)
 		}

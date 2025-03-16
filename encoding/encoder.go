@@ -19,7 +19,7 @@ func PredefinedEncoder(mode instructor.Mode, req any) (instructor.Encoder, error
 	case instructor.ModeToolCall, instructor.ModeToolCallStrict, instructor.ModeJSON, instructor.ModeJSONStrict, instructor.ModeJSONSchema:
 		enc, err = jsonenc.NewEncoder(req)
 	case instructor.ModeYAML:
-		enc = yamlenc.NewEncoder()
+		enc = yamlenc.NewEncoder(req)
 	case instructor.ModePlainText:
 		enc = dummyenc.NewEncoder()
 	default:
