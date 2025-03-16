@@ -16,9 +16,9 @@ func (i *Instructor) SetClient(clt *openai.Client) {
 }
 
 var (
-	_ instructor.ChatInstructor[openai.ChatCompletionRequest, openai.ChatCompletionResponse]       = (*Instructor)(nil)
-	_ instructor.JSONStreamInstructor[openai.ChatCompletionRequest, openai.ChatCompletionResponse] = (*Instructor)(nil)
-	_ instructor.StreamInstructor[openai.ChatCompletionRequest, openai.ChatCompletionResponse]     = (*Instructor)(nil)
+	_ instructor.ChatInstructor[openai.ChatCompletionRequest, openai.ChatCompletionResponse]         = (*Instructor)(nil)
+	_ instructor.SchemaStreamInstructor[openai.ChatCompletionRequest, openai.ChatCompletionResponse] = (*Instructor)(nil)
+	_ instructor.StreamInstructor[openai.ChatCompletionRequest, openai.ChatCompletionResponse]       = (*Instructor)(nil)
 )
 
 func New(client *openai.Client, opts ...instructor.Option) *Instructor {

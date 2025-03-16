@@ -3,6 +3,7 @@ package gemini
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 
@@ -10,17 +11,17 @@ import (
 	"google.golang.org/api/iterator"
 
 	"github.com/bububa/instructor-go"
-	"github.com/bububa/instructor-go/internal"
+	jsonenc "github.com/bububa/instructor-go/encoding/json"
 	"github.com/bububa/instructor-go/internal/chat"
 )
 
-func (i *Instructor) JSONStream(
+func (i *Instructor) SchemaStream(
 	ctx context.Context,
 	request *Request,
 	responseType any,
 	response *gemini.GenerateContentResponse,
 ) (stream <-chan any, err error) {
-	stream, err = chat.JSONStreamHandler(i, ctx, request, responseType, response)
+	stream, err = chat.SchemaStreamHandler(i, ctx, request, responseType, response)
 	if err != nil {
 		return nil, err
 	}
@@ -28,20 +29,26 @@ func (i *Instructor) JSONStream(
 	return stream, err
 }
 
-func (i *Instructor) JSONStreamHandler(ctx context.Context, request *Request, schema *instructor.Schema, response *gemini.GenerateContentResponse) (<-chan string, error) {
+func (i *Instructor) SchemaStreamHandler(ctx context.Context, request *Request, response *gemini.GenerateContentResponse) (<-chan string, error) {
 	switch i.Mode() {
 	case instructor.ModeToolCall, instructor.ModeToolCallStrict:
-		return i.chatToolCallStream(ctx, *request, schema, response)
+		return i.chatToolCallStream(ctx, *request, response)
 	case instructor.ModeJSON:
-		return i.chatJSONStream(ctx, *request, schema, response, false)
+		return i.chatJSONStream(ctx, *request, response, false)
 	case instructor.ModeJSONStrict, instructor.ModeJSONSchema:
-		return i.chatJSONStream(ctx, *request, schema, response, true)
+		return i.chatJSONStream(ctx, *request, response, true)
 	default:
 		return nil, fmt.Errorf("mode '%s' is not supported for %s", i.Mode(), i.Provider())
 	}
 }
 
-func (i *Instructor) chatToolCallStream(ctx context.Context, request Request, schema *instructor.Schema, response *gemini.GenerateContentResponse) (<-chan string, error) {
+func (i *Instructor) chatToolCallStream(ctx context.Context, request Request, response *gemini.GenerateContentResponse) (<-chan string, error) {
+	var schema *instructor.Schema
+	if enc, ok := i.StreamEncoder().(*jsonenc.StreamEncoder); ok {
+		schema = enc.Schema()
+	} else {
+		return nil, errors.New("encoder must be JSON Encoder")
+	}
 	model := i.GenerativeModel(request.Model)
 	model.SystemInstruction = request.System
 	model.Tools = createTools(schema)
@@ -65,13 +72,22 @@ func (i *Instructor) chatToolCallStream(ctx context.Context, request Request, sc
 	return i.createStream(ctx, iter, response)
 }
 
-func (i *Instructor) chatJSONStream(ctx context.Context, request Request, schema *instructor.Schema, response *gemini.GenerateContentResponse, strict bool) (<-chan string, error) {
-	request.Parts = internal.Prepend(request.Parts, createJSONMessageStream(schema))
+func (i *Instructor) chatJSONStream(ctx context.Context, request Request, response *gemini.GenerateContentResponse, strict bool) (<-chan string, error) {
+	if bs := i.StreamEncoder().Context(); bs != nil {
+		request.Parts = append(request.Parts, gemini.Text(string(bs)))
+	}
 
 	model := i.GenerativeModel(request.Model)
 	model.SystemInstruction = request.System
+	enc, isJSON := i.StreamEncoder().(*jsonenc.StreamEncoder)
+	if isJSON {
+		model.ResponseMIMEType = "application/json"
+	} else {
+		model.ResponseMIMEType = "text/plain"
+	}
 	if strict {
 		model.ResponseSchema = new(gemini.Schema)
+		schema := enc.Schema()
 		convertSchema(schema.Schema, model.ResponseSchema)
 	}
 
@@ -94,17 +110,7 @@ func (i *Instructor) chatJSONStream(ctx context.Context, request Request, schema
 	return i.createStream(ctx, iter, response)
 }
 
-func createJSONMessageStream(schema *instructor.Schema) gemini.Part {
-	return gemini.Text(fmt.Sprintf(`
-Please respond with a JSON array where the elements following JSON schema:
-
-%s
-
-Make sure to return an array with the elements an instance of the JSON, not the schema itself.
-`, schema.String))
-}
-
-func (i *Instructor) createStream(ctx context.Context, iter *gemini.GenerateContentResponseIterator, response *gemini.GenerateContentResponse) (<-chan string, error) {
+func (i *Instructor) createStream(_ context.Context, iter *gemini.GenerateContentResponseIterator, response *gemini.GenerateContentResponse) (<-chan string, error) {
 	ch := make(chan string)
 
 	go func() {

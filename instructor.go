@@ -11,6 +11,10 @@ var validate *validator.Validate
 type Instructor interface {
 	Provider() Provider
 	Mode() Mode
+	SetEncoder(enc Encoder)
+	Encoder() Encoder
+	SetStreamEncoder(enc StreamEncoder)
+	StreamEncoder() StreamEncoder
 	MaxRetries() int
 	Validate() bool
 	Verbose() bool
@@ -27,7 +31,6 @@ type ChatInstructor[T any, RESP any] interface {
 	Handler(
 		ctx context.Context,
 		request *T,
-		schema *Schema,
 		response *RESP,
 	) (string, error)
 
@@ -38,18 +41,17 @@ type ChatInstructor[T any, RESP any] interface {
 	CountUsageFromResponse(response *RESP, usage *UsageSum)
 }
 
-type JSONStreamInstructor[T any, RESP any] interface {
+type SchemaStreamInstructor[T any, RESP any] interface {
 	Instructor
-	JSONStream(
+	SchemaStream(
 		ctx context.Context,
 		request *T,
 		responseType any,
 		response *RESP,
 	) (<-chan any, error)
-	JSONStreamHandler(
+	SchemaStreamHandler(
 		ctx context.Context,
 		request *T,
-		schema *Schema,
 		response *RESP,
 	) (<-chan string, error)
 }
@@ -59,6 +61,7 @@ type StreamInstructor[T any, RESP any] interface {
 	Stream(
 		ctx context.Context,
 		request *T,
+		responseType any,
 		response *RESP,
 	) (<-chan string, error)
 }
