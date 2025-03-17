@@ -261,10 +261,6 @@ func (i *Instructor) CountUsageFromResponse(response *openai.ChatCompletionRespo
 	usage.TotalTokens += response.Usage.TotalTokens
 }
 
-func appendJSONMessage(schema *instructor.Schema) string {
-	return fmt.Sprintf("\nPlease respond with JSON in the following JSON schema:\n```json\n%s\n```\nMake sure to return an instance of the JSON, not the schema itself\n", schema.String)
-}
-
 func createOpenAITools(schema *instructor.Schema, strict bool) []openai.Tool {
 	tools := make([]openai.Tool, 0, len(schema.Functions))
 	for _, function := range schema.Functions {
