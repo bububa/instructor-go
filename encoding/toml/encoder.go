@@ -1,18 +1,18 @@
-package yaml
+package toml
 
 import (
 	"bytes"
 	"reflect"
 
+	"github.com/BurntSushi/toml"
 	"github.com/brianvoe/gofakeit/v7"
 	"github.com/go-playground/validator/v10"
-	"gopkg.in/yaml.v3"
 
 	"github.com/bububa/instructor-go"
 )
 
 var (
-	IGNORE_PREFIX = []byte("```yaml")
+	IGNORE_PREFIX = []byte("```toml")
 	IGNORE_SUFFIX = []byte("```")
 )
 
@@ -28,12 +28,12 @@ func NewEncoder(req any) *Encoder {
 }
 
 func (e *Encoder) Marshal(v any) ([]byte, error) {
-	return yaml.Marshal(v)
+	return toml.Marshal(v)
 }
 
 func (e *Encoder) Unmarshal(bs []byte, ret any) error {
 	data := cleanup(bs)
-	return yaml.Unmarshal(data, ret)
+	return toml.Unmarshal(data, ret)
 }
 
 func (e *Encoder) Validate(req any) error {
@@ -53,11 +53,11 @@ func (e *Encoder) Context() []byte {
 		return nil
 	}
 	var b bytes.Buffer
-	b.WriteString("\nPlease respond with YAML in the following YAML schema:\n\n")
-	b.WriteString("```yaml\n")
+	b.WriteString("\nPlease respond with TOML in the following TOML schema:\n\n")
+	b.WriteString("```toml\n")
 	b.Write(bs)
 	b.WriteString("```")
-	b.WriteString("\nMake sure to return an instance of the YAML, not the schema itself\n")
+	b.WriteString("\nMake sure to return an instance of the TOML, not the schema itself\n")
 	return b.Bytes()
 }
 
