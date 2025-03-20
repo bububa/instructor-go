@@ -79,7 +79,7 @@ func (e *Encoder) Context() []byte {
 		return nil
 	}
 	var b bytes.Buffer
-	b.WriteString("\nPlease respond with YAML in the following YAML schema:\n\n")
+	b.WriteString("\nPlease respond with YAML in the following YAML schema without comments:\n\n")
 	b.WriteString("```yaml\n")
 	b.Write(bs)
 	b.WriteString("```")
