@@ -1,4 +1,4 @@
-package yaml
+package toml
 
 import (
 	"bufio"
@@ -6,9 +6,9 @@ import (
 	"context"
 	"reflect"
 
+	"github.com/BurntSushi/toml"
 	"github.com/brianvoe/gofakeit/v7"
 	"github.com/go-playground/validator/v10"
-	"gopkg.in/yaml.v3"
 
 	"github.com/bububa/instructor-go"
 )
@@ -40,15 +40,15 @@ func (e *StreamEncoder) Validate(req any) error {
 }
 
 func (e *StreamEncoder) Marshal(req any) ([]byte, error) {
-	return yaml.Marshal(req)
+	return toml.Marshal(req)
 }
 
 func (e *StreamEncoder) Context() []byte {
 	var b bytes.Buffer
-	b.WriteString("\nPlease respond with a YAML array where the elements following YAML schema which is seperated by a blank line for each elements:\n\n")
+	b.WriteString("\nPlease respond with a TOML array where the elements following TOML schema which is seperated by `----` for each elements:\n\n")
 	for i := range 3 {
 		if i > 0 {
-			b.WriteString("\n\n")
+			b.WriteString("\n----\n")
 		}
 		instance := reflect.New(e.reqType).Interface()
 		if f, ok := instance.(instructor.Faker); ok {
@@ -62,7 +62,7 @@ func (e *StreamEncoder) Context() []byte {
 		}
 		b.Write(bs)
 	}
-	b.WriteString("\nMake sure to return an array with the elements an instance of the YAML, not the schema itself.\n")
+	b.WriteString("\nMake sure to return an array with the elements an instance of the TOML, not the schema itself.\n")
 	return b.Bytes()
 }
 
@@ -82,7 +82,7 @@ func (e *StreamEncoder) Read(ctx context.Context, ch <-chan string) <-chan any {
 					if e.buffer.Len() > 0 {
 						bs := bytes.TrimSpace(e.buffer.Bytes())
 						instance := reflect.New(e.reqType).Interface()
-						if err := yaml.Unmarshal(bs, instance); err == nil {
+						if err := toml.Unmarshal(bs, instance); err == nil {
 							if e.validate {
 								// Validate the instance
 								if err := e.Validate(instance); err == nil {
@@ -105,10 +105,10 @@ func (e *StreamEncoder) processBuffer(parsedChan chan<- any) {
 	block := new(bytes.Buffer)
 	for e.scanner.Scan() {
 		bs := e.scanner.Bytes()
-		if trimmed := bytes.TrimSpace(bs); len(trimmed) == 0 {
+		if trimmed := bytes.TrimSpace(bs); bytes.Equal(trimmed, []byte("----")) {
 			if block.Len() > 0 {
 				instance := reflect.New(e.reqType).Interface()
-				if err := yaml.Unmarshal(block.Bytes(), instance); err == nil {
+				if err := toml.Unmarshal(block.Bytes(), instance); err == nil {
 					if e.validate {
 						// Validate the instance
 						if err := e.Validate(instance); err == nil {

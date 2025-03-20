@@ -7,6 +7,7 @@ import (
 
 	dummyenc "github.com/bububa/instructor-go/encoding/dummy"
 	jsonenc "github.com/bububa/instructor-go/encoding/json"
+	tomlenc "github.com/bububa/instructor-go/encoding/toml"
 	yamlenc "github.com/bububa/instructor-go/encoding/yaml"
 )
 
@@ -20,6 +21,8 @@ func PredefinedEncoder(mode instructor.Mode, req any) (instructor.Encoder, error
 		enc, err = jsonenc.NewEncoder(req)
 	case instructor.ModeYAML:
 		enc = yamlenc.NewEncoder(req)
+	case instructor.ModeTOML:
+		enc = tomlenc.NewEncoder(req)
 	case instructor.ModePlainText:
 		enc = dummyenc.NewEncoder()
 	default:
@@ -38,6 +41,8 @@ func PredefinedStreamEncoder(mode instructor.Mode, req any) (instructor.StreamEn
 		enc, err = jsonenc.NewStreamEncoder(req, false)
 	case instructor.ModeYAML:
 		enc, err = yamlenc.NewStreamEncoder(req)
+	case instructor.ModeTOML:
+		enc, err = tomlenc.NewStreamEncoder(req)
 	case instructor.ModePlainText:
 		enc = dummyenc.NewStreamEncoder()
 	default:
