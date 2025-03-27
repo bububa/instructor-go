@@ -68,8 +68,9 @@ func (e *Encoder) WithCommentStyle(style CommentStyle) *Encoder {
 }
 
 func (e *Encoder) Context() []byte {
-	instance := reflect.New(e.reqType).Interface()
-	if f, ok := instance.(instructor.Faker); ok {
+	tValue := reflect.New(e.reqType)
+	instance := tValue.Interface()
+	if f, ok := tValue.Elem().Interface().(instructor.Faker); ok {
 		instance = f.Fake()
 	} else {
 		gofakeit.Struct(instance)
