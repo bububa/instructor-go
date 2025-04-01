@@ -16,7 +16,6 @@ import (
 type StreamEncoder struct {
 	reqType  reflect.Type
 	buffer   *bytes.Buffer
-	scanner  *bufio.Scanner
 	validate bool
 }
 
@@ -26,7 +25,6 @@ func NewStreamEncoder(req any) (*StreamEncoder, error) {
 	return &StreamEncoder{
 		reqType: t,
 		buffer:  buffer,
-		scanner: bufio.NewScanner(buffer),
 	}, nil
 }
 
@@ -80,15 +78,16 @@ func (e *StreamEncoder) Read(ctx context.Context, ch <-chan string) <-chan any {
 				if !ok {
 					// Stream closed
 					if e.buffer.Len() > 0 {
-						bs := bytes.TrimSpace(e.buffer.Bytes())
+						bs := bytes.TrimSuffix(bytes.TrimPrefix(bytes.TrimSpace(e.buffer.Bytes()), IGNORE_PREFIX), IGNORE_SUFFIX)
 						instance := reflect.New(e.reqType).Interface()
 						if err := yaml.Unmarshal(bs, instance); err == nil {
 							if e.validate {
 								// Validate the instance
-								if err := e.Validate(instance); err == nil {
-									parsedChan <- instance
+								if err := e.Validate(instance); err != nil {
+									return
 								}
 							}
+							parsedChan <- instance
 						}
 					}
 					return
@@ -103,23 +102,40 @@ func (e *StreamEncoder) Read(ctx context.Context, ch <-chan string) <-chan any {
 
 func (e *StreamEncoder) processBuffer(parsedChan chan<- any) {
 	block := new(bytes.Buffer)
-	for e.scanner.Scan() {
-		bs := e.scanner.Bytes()
+	scanner := bufio.NewScanner(e.buffer)
+	scanner.Split(func(data []byte, atEOF bool) (advance int, token []byte, err error) {
+		if atEOF && len(data) == 0 {
+			return 0, nil, nil
+		}
+		if i := bytes.IndexByte(data, '\n'); i >= 0 {
+			// 包括换行符 \n
+			return i + 1, data[0 : i+1], nil
+		}
+		// 如果没有找到换行符，返回整个剩余数据
+		if atEOF {
+			return len(data), data, nil
+		}
+		// 请求更多数据
+		return 0, nil, nil
+	})
+	for scanner.Scan() {
+		bs := scanner.Bytes()
 		if trimmed := bytes.TrimSpace(bs); len(trimmed) == 0 {
 			if block.Len() > 0 {
+				in := bytes.TrimSuffix(bytes.TrimPrefix(bytes.TrimSpace(block.Bytes()), IGNORE_PREFIX), IGNORE_SUFFIX)
 				instance := reflect.New(e.reqType).Interface()
-				if err := yaml.Unmarshal(block.Bytes(), instance); err == nil {
+				if err := yaml.Unmarshal(in, instance); err == nil {
 					if e.validate {
 						// Validate the instance
-						if err := e.Validate(instance); err == nil {
-							parsedChan <- instance
+						if err := e.Validate(instance); err != nil {
+							block.Reset()
+							continue
 						}
 					}
+					parsedChan <- instance
 				}
 			}
 			block.Reset()
-		} else if bytes.Equal(trimmed, IGNORE_PREFIX) || bytes.Equal(trimmed, IGNORE_SUFFIX) {
-			continue
 		} else {
 			block.Write(bs)
 		}

@@ -89,6 +89,9 @@ func (i *Instructor) createStream(ctx context.Context, request *openai.ChatCompl
 	go func() {
 		defer stream.Close()
 		defer close(ch)
+		if i.Verbose() {
+			log.Printf("%s Response: \n", i.Provider())
+		}
 		for {
 			resp, err := stream.Recv()
 			if errors.Is(err, io.EOF) {
@@ -107,6 +110,9 @@ func (i *Instructor) createStream(ctx context.Context, request *openai.ChatCompl
 			}
 			if len(resp.Choices) > 0 {
 				text := resp.Choices[0].Delta.Content
+				if i.Verbose() {
+					fmt.Print(text)
+				}
 				ch <- text
 			}
 		}
