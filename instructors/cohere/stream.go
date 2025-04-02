@@ -15,12 +15,12 @@ func (i *Instructor) Stream(
 	request *cohere.ChatStreamRequest,
 	responseType any,
 	response *cohere.NonStreamedChatResponse,
-) (<-chan string, error) {
+) (<-chan string, <-chan string, error) {
 	req := *request
 	if responseType != nil {
 		if i.Encoder() == nil {
 			if enc, err := encoding.PredefinedEncoder(i.Mode(), responseType); err != nil {
-				return nil, err
+				return nil, nil, err
 			} else {
 				i.SetEncoder(enc)
 			}
@@ -33,10 +33,10 @@ func (i *Instructor) Stream(
 			}
 		}
 	}
-	stream, err := i.createStream(ctx, &req, response)
+	stream, thinking, err := i.createStream(ctx, &req, response)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return stream, err
+	return stream, thinking, err
 }

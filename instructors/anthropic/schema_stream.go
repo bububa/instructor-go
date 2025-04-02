@@ -19,32 +19,32 @@ func (i *Instructor) SchemaStream(
 	request *anthropic.MessagesRequest,
 	responseType any,
 	response *anthropic.MessagesResponse,
-) (stream <-chan any, err error) {
-	stream, err = chat.SchemaStreamHandler(i, ctx, request, responseType, response)
+) (stream <-chan any, thinkingStream <-chan string, err error) {
+	stream, thinkingStream, err = chat.SchemaStreamHandler(i, ctx, request, responseType, response)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return stream, err
+	return stream, thinkingStream, err
 }
 
-func (i *Instructor) SchemaStreamHandler(ctx context.Context, request *anthropic.MessagesRequest, response *anthropic.MessagesResponse) (<-chan string, error) {
+func (i *Instructor) SchemaStreamHandler(ctx context.Context, request *anthropic.MessagesRequest, response *anthropic.MessagesResponse) (<-chan string, <-chan string, error) {
 	switch i.Mode() {
 	case instructor.ModeToolCall, instructor.ModeToolCallStrict:
 		return i.chatToolCallStream(ctx, *request, response)
 	case instructor.ModeJSON, instructor.ModeJSONSchema:
 		return i.chatSchemaStream(ctx, *request, response)
 	default:
-		return nil, fmt.Errorf("mode '%s' is not supported for %s", i.Mode(), i.Provider())
+		return nil, nil, fmt.Errorf("mode '%s' is not supported for %s", i.Mode(), i.Provider())
 	}
 }
 
-func (i *Instructor) chatToolCallStream(ctx context.Context, request anthropic.MessagesRequest, response *anthropic.MessagesResponse) (<-chan string, error) {
+func (i *Instructor) chatToolCallStream(ctx context.Context, request anthropic.MessagesRequest, response *anthropic.MessagesResponse) (<-chan string, <-chan string, error) {
 	var schema *instructor.Schema
 	if enc, ok := i.StreamEncoder().(*jsonenc.StreamEncoder); ok {
 		schema = enc.Schema()
 	} else {
-		return nil, errors.New("encoder must be JSON Encoder")
+		return nil, nil, errors.New("encoder must be JSON Encoder")
 	}
 	request.Stream = true
 	request.Tools = []anthropic.ToolDefinition{}
@@ -60,7 +60,7 @@ func (i *Instructor) chatToolCallStream(ctx context.Context, request anthropic.M
 	return i.createStream(ctx, &request, response)
 }
 
-func (i *Instructor) chatSchemaStream(ctx context.Context, request anthropic.MessagesRequest, response *anthropic.MessagesResponse) (<-chan string, error) {
+func (i *Instructor) chatSchemaStream(ctx context.Context, request anthropic.MessagesRequest, response *anthropic.MessagesResponse) (<-chan string, <-chan string, error) {
 	request.Stream = true
 	if bs := i.StreamEncoder().Context(); bs != nil {
 		if request.System == "" {
@@ -72,13 +72,17 @@ func (i *Instructor) chatSchemaStream(ctx context.Context, request anthropic.Mes
 	return i.createStream(ctx, &request, response)
 }
 
-func (i *Instructor) createStream(ctx context.Context, request *anthropic.MessagesRequest, response *anthropic.MessagesResponse) (<-chan string, error) {
+func (i *Instructor) createStream(ctx context.Context, request *anthropic.MessagesRequest, response *anthropic.MessagesResponse) (<-chan string, <-chan string, error) {
 	request.Stream = true
 	toolCall := len(request.Tools) > 0
 	ch := make(chan string)
+	thinkingCh := make(chan string)
 	streamReq := anthropic.MessagesStreamRequest{
 		MessagesRequest: *request,
 		OnContentBlockDelta: func(data anthropic.MessagesEventContentBlockDeltaData) {
+			if thinking := data.Delta.MessageContentThinking; thinking != nil {
+				thinkingCh <- thinking.Thinking
+			}
 			if toolCall {
 				if partial := data.Delta.PartialJson; partial != nil {
 					ch <- *partial
@@ -88,11 +92,18 @@ func (i *Instructor) createStream(ctx context.Context, request *anthropic.Messag
 			}
 		},
 	}
+	if thinkingConfig := i.ThinkingConfig(); thinkingConfig != nil {
+		request.Thinking = &anthropic.Thinking{
+			BudgetTokens: thinkingConfig.Budget,
+			Type:         anthropic.ThinkingTypeEnabled,
+		}
+	}
 	if i.Verbose() {
 		bs, _ := json.MarshalIndent(request, "", "  ")
 		log.Printf("%s Request: %s\n", i.Provider(), string(bs))
 	}
 	go func() {
+		defer close(thinkingCh)
 		defer close(ch)
 		resp, err := i.CreateMessagesStream(ctx, streamReq)
 		if err != nil {
@@ -103,5 +114,5 @@ func (i *Instructor) createStream(ctx context.Context, request *anthropic.Messag
 		}
 	}()
 
-	return ch, nil
+	return ch, thinkingCh, nil
 }

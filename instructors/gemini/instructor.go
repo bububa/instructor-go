@@ -1,7 +1,7 @@
 package gemini
 
 import (
-	gemini "github.com/google/generative-ai-go/genai"
+	gemini "google.golang.org/genai"
 
 	"github.com/bububa/instructor-go"
 )

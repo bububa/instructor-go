@@ -1,12 +1,12 @@
 package gemini
 
 import (
-	gemini "github.com/google/generative-ai-go/genai"
+	gemini "google.golang.org/genai"
 )
 
 type Request struct {
 	Model   string
 	System  *gemini.Content
-	Parts   []gemini.Part
+	Parts   []*gemini.Part
 	History []*gemini.Content
 }

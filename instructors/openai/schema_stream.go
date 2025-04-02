@@ -20,16 +20,16 @@ func (i *Instructor) SchemaStream(
 	request *openai.ChatCompletionRequest,
 	responseType any,
 	response *openai.ChatCompletionResponse,
-) (stream <-chan any, err error) {
-	stream, err = chat.SchemaStreamHandler(i, ctx, request, responseType, response)
+) (stream <-chan any, thinking <-chan string, err error) {
+	stream, thinking, err = chat.SchemaStreamHandler(i, ctx, request, responseType, response)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return stream, err
+	return stream, nil, err
 }
 
-func (i *Instructor) SchemaStreamHandler(ctx context.Context, request *openai.ChatCompletionRequest, response *openai.ChatCompletionResponse) (<-chan string, error) {
+func (i *Instructor) SchemaStreamHandler(ctx context.Context, request *openai.ChatCompletionRequest, response *openai.ChatCompletionResponse) (<-chan string, <-chan string, error) {
 	switch i.Mode() {
 	case instructor.ModeToolCall:
 		return i.chatToolCallStream(ctx, *request, response, false)
@@ -40,18 +40,18 @@ func (i *Instructor) SchemaStreamHandler(ctx context.Context, request *openai.Ch
 	}
 }
 
-func (i *Instructor) chatToolCallStream(ctx context.Context, request openai.ChatCompletionRequest, response *openai.ChatCompletionResponse, strict bool) (<-chan string, error) {
+func (i *Instructor) chatToolCallStream(ctx context.Context, request openai.ChatCompletionRequest, response *openai.ChatCompletionResponse, strict bool) (<-chan string, <-chan string, error) {
 	var schema *instructor.Schema
 	if enc, ok := i.StreamEncoder().(*jsonenc.StreamEncoder); ok {
 		schema = enc.Schema()
 	} else {
-		return nil, errors.New("encoder must be JSON Encoder")
+		return nil, nil, errors.New("encoder must be JSON Encoder")
 	}
 	request.Tools = createOpenAITools(schema, strict)
 	return i.createStream(ctx, &request, response)
 }
 
-func (i *Instructor) chatSchemaStream(ctx context.Context, request openai.ChatCompletionRequest, response *openai.ChatCompletionResponse) (<-chan string, error) {
+func (i *Instructor) chatSchemaStream(ctx context.Context, request openai.ChatCompletionRequest, response *openai.ChatCompletionResponse) (<-chan string, <-chan string, error) {
 	for idx, msg := range request.Messages {
 		if msg.Role == "system" {
 			if bs := i.StreamEncoder().Context(); bs != nil {
@@ -68,7 +68,7 @@ func (i *Instructor) chatSchemaStream(ctx context.Context, request openai.ChatCo
 	return i.createStream(ctx, &request, response)
 }
 
-func (i *Instructor) createStream(ctx context.Context, request *openai.ChatCompletionRequest, response *openai.ChatCompletionResponse) (<-chan string, error) {
+func (i *Instructor) createStream(ctx context.Context, request *openai.ChatCompletionRequest, response *openai.ChatCompletionResponse) (<-chan string, <-chan string, error) {
 	request.Stream = true
 	if request.StreamOptions == nil {
 		request.StreamOptions = new(openai.StreamOptions)
@@ -81,13 +81,15 @@ func (i *Instructor) createStream(ctx context.Context, request *openai.ChatCompl
 	}
 	stream, err := i.CreateChatCompletionStream(ctx, *request)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	ch := make(chan string)
+	thinkingCh := make(chan string)
 
 	go func() {
 		defer stream.Close()
+		defer close(thinkingCh)
 		defer close(ch)
 		if i.Verbose() {
 			log.Printf("%s Response: \n", i.Provider())
@@ -110,12 +112,9 @@ func (i *Instructor) createStream(ctx context.Context, request *openai.ChatCompl
 			}
 			if len(resp.Choices) > 0 {
 				text := resp.Choices[0].Delta.Content
-				if i.Verbose() {
-					fmt.Print(text)
-				}
 				ch <- text
 			}
 		}
 	}()
-	return ch, nil
+	return ch, thinkingCh, nil
 }

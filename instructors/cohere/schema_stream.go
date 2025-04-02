@@ -19,16 +19,16 @@ func (i *Instructor) SchemaStream(
 	request *cohere.ChatStreamRequest,
 	responseType any,
 	response *cohere.NonStreamedChatResponse,
-) (<-chan any, error) {
-	stream, err := chat.SchemaStreamHandler(i, ctx, request, responseType, response)
+) (<-chan any, <-chan string, error) {
+	stream, thinking, err := chat.SchemaStreamHandler(i, ctx, request, responseType, response)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return stream, err
+	return stream, thinking, err
 }
 
-func (i *Instructor) SchemaStreamHandler(ctx context.Context, request *cohere.ChatStreamRequest, response *cohere.NonStreamedChatResponse) (<-chan string, error) {
+func (i *Instructor) SchemaStreamHandler(ctx context.Context, request *cohere.ChatStreamRequest, response *cohere.NonStreamedChatResponse) (<-chan string, <-chan string, error) {
 	if bs := i.StreamEncoder().Context(); bs != nil {
 		if system := request.Preamble; system == nil {
 			request.Preamble = internal.ToPtr(string(bs))
@@ -39,20 +39,22 @@ func (i *Instructor) SchemaStreamHandler(ctx context.Context, request *cohere.Ch
 	return i.createStream(ctx, request, response)
 }
 
-func (i *Instructor) createStream(ctx context.Context, request *cohere.ChatStreamRequest, response *cohere.NonStreamedChatResponse) (<-chan string, error) {
+func (i *Instructor) createStream(ctx context.Context, request *cohere.ChatStreamRequest, response *cohere.NonStreamedChatResponse) (<-chan string, <-chan string, error) {
 	if i.Verbose() {
 		bs, _ := json.MarshalIndent(request, "", "  ")
 		log.Printf("%s Request: %s\n", i.Provider(), string(bs))
 	}
 	stream, err := i.ChatStream(ctx, request)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	ch := make(chan string)
+	thinkingCh := make(chan string)
 
 	go func() {
 		defer stream.Close()
+		defer close(thinkingCh)
 		defer close(ch)
 		for {
 			message, err := stream.Recv()
@@ -77,5 +79,5 @@ func (i *Instructor) createStream(ctx context.Context, request *cohere.ChatStrea
 			}
 		}
 	}()
-	return ch, nil
+	return ch, thinkingCh, nil
 }

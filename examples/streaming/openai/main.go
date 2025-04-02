@@ -73,7 +73,7 @@ Preferred Shopping Times: Weekend Evenings
 		productList += product.String() + "\n"
 	}
 
-	recommendationChan, err := client.SchemaStream(ctx, &openai.ChatCompletionRequest{
+	recommendationChan, _, err := client.SchemaStream(ctx, &openai.ChatCompletionRequest{
 		Model: openai.GPT4o20240513,
 		Messages: []openai.ChatCompletionMessage{
 			{

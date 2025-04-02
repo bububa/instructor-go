@@ -5,9 +5,10 @@ import (
 	"encoding/json"
 	"log"
 
+	gemini "google.golang.org/genai"
+
 	"github.com/bububa/instructor-go/encoding"
 	jsonenc "github.com/bububa/instructor-go/encoding/json"
-	gemini "github.com/google/generative-ai-go/genai"
 )
 
 func (i *Instructor) Stream(
@@ -15,44 +16,49 @@ func (i *Instructor) Stream(
 	request *Request,
 	responseType any,
 	response *gemini.GenerateContentResponse,
-) (stream <-chan string, err error) {
-	model := i.GenerativeModel(request.Model)
-	model.SystemInstruction = request.System
+) (stream <-chan string, thinking <-chan string, err error) {
+	cfg := gemini.GenerateContentConfig{
+		SystemInstruction: request.System,
+	}
+	if thinkingConfig := i.ThinkingConfig(); thinkingConfig != nil {
+		cfg.ThinkingConfig = &gemini.ThinkingConfig{
+			IncludeThoughts: true,
+		}
+	}
 
 	if i.Verbose() {
-		modelBytes, _ := json.MarshalIndent(model, "", "  ")
+		cfgBytes, _ := json.MarshalIndent(cfg, "", "  ")
 		bs, _ := json.MarshalIndent(request, "", "  ")
 		log.Printf(`%s Request: %s
-      Request Model: %s\n`, i.Provider(), string(bs), string(modelBytes))
+      Request Config: %s\n`, i.Provider(), string(bs), string(cfgBytes))
 	}
 
 	req := *request
 	if responseType != nil {
 		if i.Encoder() == nil {
 			if enc, err := encoding.PredefinedEncoder(i.Mode(), responseType); err != nil {
-				return nil, err
+				return nil, nil, err
 			} else {
 				i.SetEncoder(enc)
 			}
 		}
 		if bs := i.Encoder().Context(); bs != nil {
-			req.Parts = append(req.Parts, gemini.Text(string(bs)))
+			req.Parts = append(req.Parts, &gemini.Part{Text: string(bs)})
 		}
 		if _, isJSON := i.Encoder().(*jsonenc.Encoder); isJSON {
-			model.ResponseMIMEType = "application/json"
+			cfg.ResponseMIMEType = "application/json"
 		} else {
-			model.ResponseMIMEType = "text/plain"
+			cfg.ResponseMIMEType = "text/plain"
 		}
 	}
 
-	var iter *gemini.GenerateContentResponseIterator
+	contents := make([]*gemini.Content, len(request.History)+1)
+	contents = append(contents, request.History...)
+	contents = append(contents, &gemini.Content{
+		Parts: request.Parts,
+		Role:  "user",
+	})
+	iter := i.Models.GenerateContentStream(ctx, request.Model, contents, &cfg)
 
-	if len(request.History) > 0 {
-		cs := model.StartChat()
-		cs.History = request.History
-		iter = cs.SendMessageStream(ctx, request.Parts...)
-	} else {
-		iter = model.GenerateContentStream(ctx, request.Parts...)
-	}
 	return i.createStream(ctx, iter, response)
 }

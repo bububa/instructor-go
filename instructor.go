@@ -48,12 +48,12 @@ type SchemaStreamInstructor[T any, RESP any] interface {
 		request *T,
 		responseType any,
 		response *RESP,
-	) (<-chan any, error)
+	) (<-chan any, <-chan string, error)
 	SchemaStreamHandler(
 		ctx context.Context,
 		request *T,
 		response *RESP,
-	) (<-chan string, error)
+	) (<-chan string, <-chan string, error)
 }
 
 type StreamInstructor[T any, RESP any] interface {
@@ -63,5 +63,5 @@ type StreamInstructor[T any, RESP any] interface {
 		request *T,
 		responseType any,
 		response *RESP,
-	) (<-chan string, error)
+	) (<-chan string, <-chan string, error)
 }

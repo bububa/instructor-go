@@ -8,14 +8,19 @@ const (
 
 type Option func(o *Options)
 
+type ThinkingConfig struct {
+	Budget int
+}
+
 type Options struct {
-	provider   Provider
-	mode       Mode
-	enc        Encoder
-	streamEnc  StreamEncoder
-	maxRetries int
-	validate   bool
-	verbose    bool
+	provider       Provider
+	mode           Mode
+	enc            Encoder
+	streamEnc      StreamEncoder
+	maxRetries     int
+	thinkingConfig *ThinkingConfig
+	validate       bool
+	verbose        bool
 	// Provider specific options:
 }
 
@@ -56,6 +61,14 @@ func WithMaxRetries(maxRetries int) Option {
 	}
 }
 
+func WithThinking(budget int) Option {
+	return func(o *Options) {
+		o.thinkingConfig = &ThinkingConfig{
+			Budget: budget,
+		}
+	}
+}
+
 func WithValidation() Option {
 	return func(o *Options) {
 		o.validate = true
@@ -90,6 +103,10 @@ func (i Options) Encoder() Encoder {
 
 func (i Options) StreamEncoder() StreamEncoder {
 	return i.streamEnc
+}
+
+func (i Options) ThinkingConfig() *ThinkingConfig {
+	return i.thinkingConfig
 }
 
 func (i Options) MaxRetries() int {
