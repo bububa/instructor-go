@@ -14,12 +14,12 @@ func (i *Instructor) Stream(
 	request *anthropic.MessagesRequest,
 	responseType any,
 	response *anthropic.MessagesResponse,
-) (stream <-chan string, err error) {
+) (stream <-chan string, thinkingCh <-chan string, err error) {
 	req := *request
 	if responseType != nil {
 		if i.Encoder() == nil {
 			if enc, err := encoding.PredefinedEncoder(i.Mode(), responseType); err != nil {
-				return nil, err
+				return nil, nil, err
 			} else {
 				i.SetEncoder(enc)
 			}
@@ -32,10 +32,5 @@ func (i *Instructor) Stream(
 			}
 		}
 	}
-	stream, err = i.createStream(ctx, &req, response)
-	if err != nil {
-		return nil, err
-	}
-
-	return stream, err
+	return i.createStream(ctx, &req, response)
 }

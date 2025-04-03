@@ -34,7 +34,7 @@ func main() {
 		instructor.WithMaxRetries(3),
 	)
 
-	hfStream, err := client.SchemaStream(ctx, &cohere.ChatStreamRequest{
+	hfStream, _, err := client.SchemaStream(ctx, &cohere.ChatStreamRequest{
 		Model:     toPtr("command-r-plus"),
 		Message:   "Tell me about the history of artificial intelligence up to year 2000",
 		MaxTokens: toPtr(2500),

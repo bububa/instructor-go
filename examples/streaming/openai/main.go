@@ -36,9 +36,12 @@ Recommendation [
 func main() {
 	ctx := context.Background()
 
+	cfg := openai.DefaultConfig(os.Getenv("OPENAI_API_KEY"))
+	cfg.BaseURL = os.Getenv("OPENAI_API_BASE_URL")
 	client := instructors.FromOpenAI(
-		openai.NewClient(os.Getenv("OPENAI_API_KEY")),
+		openai.NewClientWithConfig(cfg),
 		instructor.WithMode(instructor.ModeJSON),
+		instructor.WithVerbose(),
 	)
 
 	profileData := `
@@ -73,8 +76,8 @@ Preferred Shopping Times: Weekend Evenings
 		productList += product.String() + "\n"
 	}
 
-	recommendationChan, err := client.SchemaStream(ctx, &openai.ChatCompletionRequest{
-		Model: openai.GPT4o20240513,
+	recommendationChan, thinkingCh, err := client.SchemaStream(ctx, &openai.ChatCompletionRequest{
+		Model: os.Getenv("OPENAI_MODEL"),
 		Messages: []openai.ChatCompletionMessage{
 			{
 				Role: openai.ChatMessageRoleSystem,
@@ -82,7 +85,9 @@ Preferred Shopping Times: Weekend Evenings
 Generate the product recommendations from the product list based on the customer profile.
 Return in order of highest recommended first.
 Product list:
-%s`, productList),
+%s
+          
+          * Do not show output instruction and schema in reasoning content!`, productList),
 			},
 			{
 				Role:    openai.ChatMessageRoleUser,
@@ -97,6 +102,14 @@ Product list:
 	if err != nil {
 		panic(err)
 	}
+
+	go func() {
+		fmt.Println("Thinking start...")
+		for txt := range thinkingCh {
+			fmt.Print(txt)
+		}
+		fmt.Println("Thinking end...")
+	}()
 
 	for instance := range recommendationChan {
 		recommendation, _ := instance.(*Recommendation)

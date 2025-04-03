@@ -15,12 +15,12 @@ func (i *Instructor) Stream(
 	request *openai.ChatCompletionRequest,
 	responseType any,
 	response *openai.ChatCompletionResponse,
-) (stream <-chan string, err error) {
+) (stream <-chan string, thinking <-chan string, err error) {
 	req := *request
 	if responseType != nil {
 		if i.Encoder() == nil {
 			if enc, err := encoding.PredefinedEncoder(i.Mode(), responseType); err != nil {
-				return nil, err
+				return nil, nil, err
 			} else {
 				i.SetEncoder(enc)
 			}
@@ -39,9 +39,5 @@ func (i *Instructor) Stream(
 			req.ResponseFormat = &openai.ChatCompletionResponseFormat{Type: openai.ChatCompletionResponseFormatTypeText}
 		}
 	}
-	stream, err = i.createStream(ctx, &req, response)
-	if err != nil {
-		return nil, err
-	}
-	return stream, err
+	return i.createStream(ctx, &req, response)
 }

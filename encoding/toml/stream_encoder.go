@@ -80,15 +80,16 @@ func (e *StreamEncoder) Read(ctx context.Context, ch <-chan string) <-chan any {
 				if !ok {
 					// Stream closed
 					if e.buffer.Len() > 0 {
-						bs := bytes.TrimSpace(e.buffer.Bytes())
+						bs := bytes.TrimSuffix(bytes.TrimPrefix(bytes.TrimSpace(e.buffer.Bytes()), IGNORE_PREFIX), IGNORE_SUFFIX)
 						instance := reflect.New(e.reqType).Interface()
 						if err := toml.Unmarshal(bs, instance); err == nil {
 							if e.validate {
 								// Validate the instance
 								if err := e.Validate(instance); err == nil {
-									parsedChan <- instance
+									return
 								}
 							}
+							parsedChan <- instance
 						}
 					}
 					return
@@ -107,19 +108,20 @@ func (e *StreamEncoder) processBuffer(parsedChan chan<- any) {
 		bs := e.scanner.Bytes()
 		if trimmed := bytes.TrimSpace(bs); bytes.Equal(trimmed, []byte("----")) {
 			if block.Len() > 0 {
+				in := bytes.TrimSuffix(bytes.TrimPrefix(bytes.TrimSpace(block.Bytes()), IGNORE_PREFIX), IGNORE_SUFFIX)
 				instance := reflect.New(e.reqType).Interface()
-				if err := toml.Unmarshal(block.Bytes(), instance); err == nil {
+				if err := toml.Unmarshal(in, instance); err == nil {
 					if e.validate {
 						// Validate the instance
 						if err := e.Validate(instance); err == nil {
-							parsedChan <- instance
+							block.Reset()
+							continue
 						}
 					}
+					parsedChan <- instance
 				}
 			}
 			block.Reset()
-		} else if bytes.Equal(trimmed, IGNORE_PREFIX) || bytes.Equal(trimmed, IGNORE_SUFFIX) {
-			continue
 		} else {
 			block.Write(bs)
 		}
