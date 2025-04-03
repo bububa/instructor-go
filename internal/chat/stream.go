@@ -9,7 +9,7 @@ import (
 
 const WRAPPER_END = `"items": [`
 
-func SchemaStreamHandler[T any, RESP any](i instructor.SchemaStreamInstructor[T, RESP], ctx context.Context, request *T, responseType any, resp *RESP) (<-chan any, <-chan string, error) {
+func SchemaStreamHandler[T any, RESP any](i instructor.SchemaStreamInstructor[T, RESP], ctx context.Context, request *T, responseType any, resp *RESP) (<-chan any, <-chan instructor.StreamData, error) {
 	var (
 		enc = i.StreamEncoder()
 		err error
@@ -20,15 +20,25 @@ func SchemaStreamHandler[T any, RESP any](i instructor.SchemaStreamInstructor[T,
 		}
 		i.SetStreamEncoder(enc)
 	}
-	ch, thinkingCh, err := i.SchemaStreamHandler(ctx, request, resp)
+	ch, err := i.SchemaStreamHandler(ctx, request, resp)
 	if err != nil {
 		return nil, nil, err
 	}
 	if i.Validate() {
 		enc.EnableValidate()
 	}
+	contentCh := make(chan string)
+	outputCh := make(chan instructor.StreamData)
+	go func() {
+		defer close(contentCh)
+		for item := range ch {
+			outputCh <- item
+			if item.Type == instructor.ContentStream {
+				contentCh <- item.Content
+			}
+		}
+	}()
+	parsedChan := enc.Read(ctx, contentCh)
 
-	parsedChan := enc.Read(ctx, ch)
-
-	return parsedChan, thinkingCh, nil
+	return parsedChan, outputCh, nil
 }

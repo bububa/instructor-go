@@ -6,6 +6,7 @@ import (
 
 	cohere "github.com/cohere-ai/cohere-go/v2"
 
+	"github.com/bububa/instructor-go"
 	"github.com/bububa/instructor-go/encoding"
 	"github.com/bububa/instructor-go/internal"
 )
@@ -15,12 +16,12 @@ func (i *Instructor) Stream(
 	request *cohere.ChatStreamRequest,
 	responseType any,
 	response *cohere.NonStreamedChatResponse,
-) (<-chan string, <-chan string, error) {
+) (<-chan instructor.StreamData, error) {
 	req := *request
 	if responseType != nil {
 		if i.Encoder() == nil {
 			if enc, err := encoding.PredefinedEncoder(i.Mode(), responseType); err != nil {
-				return nil, nil, err
+				return nil, err
 			} else {
 				i.SetEncoder(enc)
 			}

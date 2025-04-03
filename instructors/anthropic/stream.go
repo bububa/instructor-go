@@ -6,6 +6,7 @@ import (
 
 	anthropic "github.com/liushuangls/go-anthropic/v2"
 
+	"github.com/bububa/instructor-go"
 	"github.com/bububa/instructor-go/encoding"
 )
 
@@ -14,12 +15,12 @@ func (i *Instructor) Stream(
 	request *anthropic.MessagesRequest,
 	responseType any,
 	response *anthropic.MessagesResponse,
-) (stream <-chan string, thinkingCh <-chan string, err error) {
+) (<-chan instructor.StreamData, error) {
 	req := *request
 	if responseType != nil {
 		if i.Encoder() == nil {
 			if enc, err := encoding.PredefinedEncoder(i.Mode(), responseType); err != nil {
-				return nil, nil, err
+				return nil, err
 			} else {
 				i.SetEncoder(enc)
 			}
