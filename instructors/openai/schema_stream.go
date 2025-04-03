@@ -88,7 +88,9 @@ func (i *Instructor) createStream(ctx context.Context, request *openai.ChatCompl
 		bs := new(bytes.Buffer)
 		if i.Verbose() {
 			fmt.Fprintf(bs, "%s Response: \n", i.Provider())
-			defer log.Println(bs.String())
+			defer func() {
+				log.Println(bs.String())
+			}()
 		}
 		for {
 			resp, err := stream.Recv()
