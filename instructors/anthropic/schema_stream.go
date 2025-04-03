@@ -108,7 +108,9 @@ func (i *Instructor) createStream(ctx context.Context, request *anthropic.Messag
 	go func() {
 		defer close(ch)
 		if i.Verbose() {
-			defer log.Println(sb.String())
+			defer func() {
+				log.Println(sb.String())
+			}()
 		}
 		resp, err := i.CreateMessagesStream(ctx, streamReq)
 		if err != nil {

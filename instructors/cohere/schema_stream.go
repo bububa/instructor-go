@@ -54,7 +54,9 @@ func (i *Instructor) createStream(ctx context.Context, request *cohere.ChatStrea
 		sb := new(bytes.Buffer)
 		if i.Verbose() {
 			fmt.Fprintf(sb, "%s Response: \n", i.Provider())
-			defer log.Println(sb.String())
+			defer func() {
+				log.Println(sb.String())
+			}()
 		}
 		for {
 			message, err := stream.Recv()

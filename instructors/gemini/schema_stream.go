@@ -125,7 +125,9 @@ func (i *Instructor) createStream(_ context.Context, iter iter.Seq2[*gemini.Gene
 		sb := new(bytes.Buffer)
 		if i.Verbose() {
 			fmt.Fprintf(sb, "%s Response: \n", i.Provider())
-			defer log.Println(sb.String())
+			defer func() {
+				log.Println(sb.String())
+			}()
 		}
 		for resp, err := range iter {
 			if err == iterator.Done {
