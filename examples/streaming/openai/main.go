@@ -76,7 +76,7 @@ Preferred Shopping Times: Weekend Evenings
 		productList += product.String() + "\n"
 	}
 
-	recommendationChan, thinkingCh, err := client.SchemaStream(ctx, &openai.ChatCompletionRequest{
+	recommendationChan, ch, err := client.SchemaStream(ctx, &openai.ChatCompletionRequest{
 		Model: os.Getenv("OPENAI_MODEL"),
 		Messages: []openai.ChatCompletionMessage{
 			{
@@ -105,8 +105,10 @@ Product list:
 
 	go func() {
 		fmt.Println("Thinking start...")
-		for txt := range thinkingCh {
-			fmt.Print(txt)
+		for item := range ch {
+			if item.Type == instructor.ThinkingStream {
+				fmt.Print(item.Content)
+			}
 		}
 		fmt.Println("Thinking end...")
 	}()

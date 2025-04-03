@@ -7,6 +7,7 @@ import (
 
 	gemini "google.golang.org/genai"
 
+	"github.com/bububa/instructor-go"
 	"github.com/bububa/instructor-go/encoding"
 	jsonenc "github.com/bububa/instructor-go/encoding/json"
 )
@@ -16,7 +17,7 @@ func (i *Instructor) Stream(
 	request *Request,
 	responseType any,
 	response *gemini.GenerateContentResponse,
-) (stream <-chan string, thinking <-chan string, err error) {
+) (<-chan instructor.StreamData, error) {
 	cfg := gemini.GenerateContentConfig{
 		SystemInstruction: request.System,
 	}
@@ -37,7 +38,7 @@ func (i *Instructor) Stream(
 	if responseType != nil {
 		if i.Encoder() == nil {
 			if enc, err := encoding.PredefinedEncoder(i.Mode(), responseType); err != nil {
-				return nil, nil, err
+				return nil, err
 			} else {
 				i.SetEncoder(enc)
 			}

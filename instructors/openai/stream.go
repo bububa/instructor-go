@@ -6,6 +6,7 @@ import (
 
 	openai "github.com/sashabaranov/go-openai"
 
+	"github.com/bububa/instructor-go"
 	"github.com/bububa/instructor-go/encoding"
 	jsonenc "github.com/bububa/instructor-go/encoding/json"
 )
@@ -15,12 +16,12 @@ func (i *Instructor) Stream(
 	request *openai.ChatCompletionRequest,
 	responseType any,
 	response *openai.ChatCompletionResponse,
-) (stream <-chan string, thinking <-chan string, err error) {
+) (<-chan instructor.StreamData, error) {
 	req := *request
 	if responseType != nil {
 		if i.Encoder() == nil {
 			if enc, err := encoding.PredefinedEncoder(i.Mode(), responseType); err != nil {
-				return nil, nil, err
+				return nil, err
 			} else {
 				i.SetEncoder(enc)
 			}

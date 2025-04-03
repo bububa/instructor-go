@@ -48,12 +48,12 @@ type SchemaStreamInstructor[T any, RESP any] interface {
 		request *T,
 		responseType any,
 		response *RESP,
-	) (<-chan any, <-chan string, error)
+	) (<-chan any, <-chan StreamData, error)
 	SchemaStreamHandler(
 		ctx context.Context,
 		request *T,
 		response *RESP,
-	) (<-chan string, <-chan string, error)
+	) (<-chan StreamData, error)
 }
 
 type StreamInstructor[T any, RESP any] interface {
@@ -63,5 +63,17 @@ type StreamInstructor[T any, RESP any] interface {
 		request *T,
 		responseType any,
 		response *RESP,
-	) (<-chan string, <-chan string, error)
+	) (<-chan StreamData, error)
+}
+
+type StreamDataType int
+
+const (
+	ContentStream StreamDataType = iota
+	ThinkingStream
+)
+
+type StreamData struct {
+	Type    StreamDataType `json:"type,omitempty"`
+	Content string         `json:"content,omitempty"`
 }
