@@ -1,6 +1,7 @@
 package openai
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -84,8 +85,10 @@ func (i *Instructor) createStream(ctx context.Context, request *openai.ChatCompl
 	go func() {
 		defer stream.Close()
 		defer close(ch)
+		bs := new(bytes.Buffer)
 		if i.Verbose() {
-			log.Printf("%s Response: \n", i.Provider())
+			fmt.Fprintf(bs, "%s Response: \n", i.Provider())
+			defer log.Println(bs.String())
 		}
 		for {
 			resp, err := stream.Recv()
@@ -107,6 +110,9 @@ func (i *Instructor) createStream(ctx context.Context, request *openai.ChatCompl
 				if text := resp.Choices[0].Delta.ReasoningContent; text != "" {
 					ch <- instructor.StreamData{Type: instructor.ThinkingStream, Content: text}
 				} else if text := resp.Choices[0].Delta.Content; text != "" {
+					if i.Verbose() {
+						bs.WriteString(text)
+					}
 					ch <- instructor.StreamData{Type: instructor.ContentStream, Content: text}
 				}
 			}

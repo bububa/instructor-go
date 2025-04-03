@@ -1,6 +1,7 @@
 package anthropic
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -71,6 +72,7 @@ func (i *Instructor) createStream(ctx context.Context, request *anthropic.Messag
 	request.Stream = true
 	toolCall := len(request.Tools) > 0
 	ch := make(chan instructor.StreamData)
+	sb := new(bytes.Buffer)
 	streamReq := anthropic.MessagesStreamRequest{
 		MessagesRequest: *request,
 		OnContentBlockDelta: func(data anthropic.MessagesEventContentBlockDeltaData) {
@@ -79,9 +81,15 @@ func (i *Instructor) createStream(ctx context.Context, request *anthropic.Messag
 			}
 			if toolCall {
 				if partial := data.Delta.PartialJson; partial != nil {
+					if i.Verbose() {
+						sb.WriteString(*partial)
+					}
 					ch <- instructor.StreamData{Type: instructor.ContentStream, Content: *partial}
 				}
 			} else if text := data.Delta.Text; text != nil {
+				if i.Verbose() {
+					sb.WriteString(*text)
+				}
 				ch <- instructor.StreamData{Type: instructor.ContentStream, Content: *text}
 			}
 		},
@@ -95,9 +103,13 @@ func (i *Instructor) createStream(ctx context.Context, request *anthropic.Messag
 	if i.Verbose() {
 		bs, _ := json.MarshalIndent(request, "", "  ")
 		log.Printf("%s Request: %s\n", i.Provider(), string(bs))
+		fmt.Fprintf(sb, "%s Response: \n", i.Provider())
 	}
 	go func() {
 		defer close(ch)
+		if i.Verbose() {
+			defer log.Println(sb.String())
+		}
 		resp, err := i.CreateMessagesStream(ctx, streamReq)
 		if err != nil {
 			return
