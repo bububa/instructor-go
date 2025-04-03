@@ -20,12 +20,7 @@ func (i *Instructor) SchemaStream(
 	responseType any,
 	response *cohere.NonStreamedChatResponse,
 ) (<-chan any, <-chan string, error) {
-	stream, thinking, err := chat.SchemaStreamHandler(i, ctx, request, responseType, response)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return stream, thinking, err
+	return chat.SchemaStreamHandler(i, ctx, request, responseType, response)
 }
 
 func (i *Instructor) SchemaStreamHandler(ctx context.Context, request *cohere.ChatStreamRequest, response *cohere.NonStreamedChatResponse) (<-chan string, <-chan string, error) {

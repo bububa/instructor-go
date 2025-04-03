@@ -22,12 +22,7 @@ func (i *Instructor) SchemaStream(
 	responseType any,
 	response *gemini.GenerateContentResponse,
 ) (stream <-chan any, thinking <-chan string, err error) {
-	stream, thinking, err = chat.SchemaStreamHandler(i, ctx, request, responseType, response)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return stream, thinking, err
+	return chat.SchemaStreamHandler(i, ctx, request, responseType, response)
 }
 
 func (i *Instructor) SchemaStreamHandler(ctx context.Context, request *Request, response *gemini.GenerateContentResponse) (<-chan string, <-chan string, error) {

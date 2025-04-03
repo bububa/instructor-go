@@ -2,17 +2,19 @@ module github.com/bububa/instructor-go
 
 go 1.23.5
 
+replace github.com/sashabaranov/go-openai => github.com/goodenough227/go-openai v0.0.0-20250313060841-319a8ea883f9
+
 require (
-	github.com/BurntSushi/toml v1.4.0
+	github.com/BurntSushi/toml v1.5.0
 	github.com/brianvoe/gofakeit/v7 v7.2.1
 	github.com/bububa/ljson v1.0.1
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/cohere-ai/cohere-go/v2 v2.13.0
-	github.com/go-playground/validator/v10 v10.25.0
+	github.com/go-playground/validator/v10 v10.26.0
 	github.com/invopop/jsonschema v0.13.0
-	github.com/liushuangls/go-anthropic/v2 v2.14.1
-	github.com/sashabaranov/go-openai v1.38.0
-	google.golang.org/api v0.224.0
+	github.com/liushuangls/go-anthropic/v2 v2.15.0
+	github.com/sashabaranov/go-openai v1.38.1
+	google.golang.org/api v0.228.0
 	google.golang.org/genai v0.7.0
 	gopkg.in/yaml.v3 v3.0.1
 )

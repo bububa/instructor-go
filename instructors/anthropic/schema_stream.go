@@ -20,12 +20,7 @@ func (i *Instructor) SchemaStream(
 	responseType any,
 	response *anthropic.MessagesResponse,
 ) (stream <-chan any, thinkingStream <-chan string, err error) {
-	stream, thinkingStream, err = chat.SchemaStreamHandler(i, ctx, request, responseType, response)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return stream, thinkingStream, err
+	return chat.SchemaStreamHandler(i, ctx, request, responseType, response)
 }
 
 func (i *Instructor) SchemaStreamHandler(ctx context.Context, request *anthropic.MessagesRequest, response *anthropic.MessagesResponse) (<-chan string, <-chan string, error) {

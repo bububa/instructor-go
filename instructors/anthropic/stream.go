@@ -32,10 +32,5 @@ func (i *Instructor) Stream(
 			}
 		}
 	}
-	stream, thinkingCh, err = i.createStream(ctx, &req, response)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return stream, thinkingCh, err
+	return i.createStream(ctx, &req, response)
 }

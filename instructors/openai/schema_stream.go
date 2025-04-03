@@ -21,12 +21,7 @@ func (i *Instructor) SchemaStream(
 	responseType any,
 	response *openai.ChatCompletionResponse,
 ) (stream <-chan any, thinking <-chan string, err error) {
-	stream, thinking, err = chat.SchemaStreamHandler(i, ctx, request, responseType, response)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return stream, nil, err
+	return chat.SchemaStreamHandler(i, ctx, request, responseType, response)
 }
 
 func (i *Instructor) SchemaStreamHandler(ctx context.Context, request *openai.ChatCompletionRequest, response *openai.ChatCompletionResponse) (<-chan string, <-chan string, error) {
@@ -111,8 +106,11 @@ func (i *Instructor) createStream(ctx context.Context, request *openai.ChatCompl
 				response.Usage = *resp.Usage
 			}
 			if len(resp.Choices) > 0 {
-				text := resp.Choices[0].Delta.Content
-				ch <- text
+				if text := resp.Choices[0].Delta.ReasoningContent; text != "" {
+					thinkingCh <- text
+				} else if text := resp.Choices[0].Delta.Content; text != "" {
+					ch <- text
+				}
 			}
 		}
 	}()
