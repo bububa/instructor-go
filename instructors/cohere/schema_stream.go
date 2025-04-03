@@ -1,6 +1,7 @@
 package cohere
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -50,6 +51,11 @@ func (i *Instructor) createStream(ctx context.Context, request *cohere.ChatStrea
 	go func() {
 		defer stream.Close()
 		defer close(ch)
+		sb := new(bytes.Buffer)
+		if i.Verbose() {
+			fmt.Fprintf(sb, "%s Response: \n", i.Provider())
+			defer log.Println(sb.String())
+		}
 		for {
 			message, err := stream.Recv()
 			if errors.Is(err, io.EOF) {
@@ -67,8 +73,14 @@ func (i *Instructor) createStream(ctx context.Context, request *cohere.ChatStrea
 				}
 				return
 			case "tool-calls-generation":
+				if i.Verbose() {
+					sb.WriteString(*message.ToolCallsGeneration.Text)
+				}
 				ch <- instructor.StreamData{Type: instructor.ContentStream, Content: *message.ToolCallsGeneration.Text}
 			case "text-generation":
+				if i.Verbose() {
+					sb.WriteString(message.TextGeneration.Text)
+				}
 				ch <- instructor.StreamData{Type: instructor.ContentStream, Content: message.TextGeneration.Text}
 			}
 		}

@@ -1,6 +1,7 @@
 package gemini
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -121,6 +122,11 @@ func (i *Instructor) createStream(_ context.Context, iter iter.Seq2[*gemini.Gene
 
 	go func() {
 		defer close(ch)
+		sb := new(bytes.Buffer)
+		if i.Verbose() {
+			fmt.Fprintf(sb, "%s Response: \n", i.Provider())
+			defer log.Println(sb.String())
+		}
 		for resp, err := range iter {
 			if err == iterator.Done {
 				return
@@ -137,6 +143,9 @@ func (i *Instructor) createStream(_ context.Context, iter iter.Seq2[*gemini.Gene
 					if part.Thought {
 						ch <- instructor.StreamData{Type: instructor.ThinkingStream, Content: part.Text}
 					} else if text := part.Text; text != "" {
+						if i.Verbose() {
+							sb.WriteString(text)
+						}
 						ch <- instructor.StreamData{Type: instructor.ContentStream, Content: text}
 					}
 				}
