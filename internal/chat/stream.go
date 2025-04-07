@@ -31,6 +31,7 @@ func SchemaStreamHandler[T any, RESP any](i instructor.SchemaStreamInstructor[T,
 	outputCh := make(chan instructor.StreamData)
 	go func() {
 		defer close(contentCh)
+		defer close(outputCh)
 		for item := range ch {
 			outputCh <- item
 			if item.Type == instructor.ContentStream {
