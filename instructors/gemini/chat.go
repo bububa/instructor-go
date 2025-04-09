@@ -11,7 +11,6 @@ import (
 
 	"github.com/bububa/instructor-go"
 	jsonenc "github.com/bububa/instructor-go/encoding/json"
-	"github.com/bububa/instructor-go/internal"
 	"github.com/bububa/instructor-go/internal/chat"
 )
 
@@ -226,8 +225,8 @@ func (i *Instructor) EmptyResponseWithUsageSum(ret *gemini.GenerateContentRespon
 	}
 	*ret = gemini.GenerateContentResponse{
 		UsageMetadata: &gemini.GenerateContentResponseUsageMetadata{
-			PromptTokenCount:     internal.ToPtr(int32(usage.InputTokens)),
-			CandidatesTokenCount: internal.ToPtr(int32(usage.OutputTokens)),
+			PromptTokenCount:     int32(usage.InputTokens),
+			CandidatesTokenCount: int32(usage.OutputTokens),
 			TotalTokenCount:      int32(usage.TotalTokens),
 		},
 	}
@@ -254,8 +253,8 @@ func (i *Instructor) SetUsageSumToResponse(response *gemini.GenerateContentRespo
 	if response.UsageMetadata == nil {
 		response.UsageMetadata = new(gemini.GenerateContentResponseUsageMetadata)
 	}
-	response.UsageMetadata.PromptTokenCount = internal.ToPtr(int32(usage.InputTokens))
-	response.UsageMetadata.CandidatesTokenCount = internal.ToPtr(int32(usage.OutputTokens))
+	response.UsageMetadata.PromptTokenCount = int32(usage.InputTokens)
+	response.UsageMetadata.CandidatesTokenCount = int32(usage.OutputTokens)
 	response.UsageMetadata.TotalTokenCount = int32(usage.TotalTokens)
 }
 
@@ -263,12 +262,8 @@ func (i *Instructor) CountUsageFromResponse(response *gemini.GenerateContentResp
 	if response == nil || response.UsageMetadata == nil || usage == nil {
 		return
 	}
-	if v := response.UsageMetadata.PromptTokenCount; v != nil {
-		usage.InputTokens += int(*v)
-	}
-	if v := response.UsageMetadata.CandidatesTokenCount; v != nil {
-		usage.OutputTokens += int(*v)
-	}
+	usage.InputTokens += int(response.UsageMetadata.PromptTokenCount)
+	usage.OutputTokens += int(response.UsageMetadata.CandidatesTokenCount)
 	usage.TotalTokens += int(response.UsageMetadata.TotalTokenCount)
 }
 
