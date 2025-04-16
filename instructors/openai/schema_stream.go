@@ -70,6 +70,9 @@ func (i *Instructor) createStream(ctx context.Context, request *openai.ChatCompl
 		request.StreamOptions = new(openai.StreamOptions)
 	}
 	request.StreamOptions.IncludeUsage = true
+	if extraBody := i.ExtraBody(); extraBody != nil {
+		request.ExtraBody = extraBody
+	}
 
 	if i.Verbose() {
 		bs, _ := json.MarshalIndent(request, "", "  ")
