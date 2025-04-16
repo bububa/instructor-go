@@ -19,6 +19,7 @@ type Options struct {
 	streamEnc      StreamEncoder
 	maxRetries     int
 	thinkingConfig *ThinkingConfig
+	extraBody      map[string]any
 	validate       bool
 	verbose        bool
 	// Provider specific options:
@@ -69,6 +70,12 @@ func WithThinking(budget int) Option {
 	}
 }
 
+func WithExtraBody(v map[string]any) Option {
+	return func(o *Options) {
+		o.extraBody = v
+	}
+}
+
 func WithValidation() Option {
 	return func(o *Options) {
 		o.validate = true
@@ -107,6 +114,10 @@ func (i Options) StreamEncoder() StreamEncoder {
 
 func (i Options) ThinkingConfig() *ThinkingConfig {
 	return i.thinkingConfig
+}
+
+func (i Options) ExtraBody() map[string]any {
+	return i.extraBody
 }
 
 func (i Options) MaxRetries() int {

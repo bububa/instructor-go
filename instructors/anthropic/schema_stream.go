@@ -70,6 +70,12 @@ func (i *Instructor) chatSchemaStream(ctx context.Context, request anthropic.Mes
 
 func (i *Instructor) createStream(ctx context.Context, request *anthropic.MessagesRequest, response *anthropic.MessagesResponse) (<-chan instructor.StreamData, error) {
 	request.Stream = true
+	if thinking := i.ThinkingConfig(); thinking != nil {
+		request.Thinking = &anthropic.Thinking{
+			Type:         anthropic.ThinkingTypeEnabled,
+			BudgetTokens: thinking.Budget,
+		}
+	}
 	toolCall := len(request.Tools) > 0
 	ch := make(chan instructor.StreamData)
 	sb := new(bytes.Buffer)

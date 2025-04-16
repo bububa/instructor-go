@@ -34,6 +34,9 @@ func (i *Instructor) Chat(
 }
 
 func (i *Instructor) Handler(ctx context.Context, request *openai.ChatCompletionRequest, response *openai.ChatCompletionResponse) (string, error) {
+	if extraBody := i.ExtraBody(); extraBody != nil {
+		request.ExtraBody = extraBody
+	}
 	switch i.Mode() {
 	case instructor.ModeToolCall:
 		return i.chatToolCall(ctx, *request, response, false)
