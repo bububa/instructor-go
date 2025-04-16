@@ -70,10 +70,8 @@ func (i *Instructor) createStream(ctx context.Context, request *openai.ChatCompl
 		request.StreamOptions = new(openai.StreamOptions)
 	}
 	request.StreamOptions.IncludeUsage = true
-	if request.ExtraBody == nil {
-		if extraBody := i.ExtraBody(); extraBody != nil {
-			request.ExtraBody = extraBody
-		}
+	if extraBody := i.ExtraBody(); extraBody != nil {
+		request.ExtraBody = extraBody
 	}
 
 	if i.Verbose() {
