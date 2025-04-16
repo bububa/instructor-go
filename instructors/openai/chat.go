@@ -34,20 +34,23 @@ func (i *Instructor) Chat(
 }
 
 func (i *Instructor) Handler(ctx context.Context, request *openai.ChatCompletionRequest, response *openai.ChatCompletionResponse) (string, error) {
-	if extraBody := i.ExtraBody(); extraBody != nil {
-		request.ExtraBody = extraBody
+	req := *request
+	if req.ExtraBody == nil {
+		if extraBody := i.ExtraBody(); extraBody != nil {
+			req.ExtraBody = extraBody
+		}
 	}
 	switch i.Mode() {
 	case instructor.ModeToolCall:
-		return i.chatToolCall(ctx, *request, response, false)
+		return i.chatToolCall(ctx, req, response, false)
 	case instructor.ModeToolCallStrict:
-		return i.chatToolCall(ctx, *request, response, true)
+		return i.chatToolCall(ctx, req, response, true)
 	case instructor.ModeJSON:
-		return i.chatJSON(ctx, *request, response, false)
+		return i.chatJSON(ctx, req, response, false)
 	case instructor.ModeJSONStrict:
-		return i.chatJSON(ctx, *request, response, true)
+		return i.chatJSON(ctx, req, response, true)
 	default:
-		return i.chatCompletion(ctx, *request, response)
+		return i.chatCompletion(ctx, req, response)
 	}
 }
 
