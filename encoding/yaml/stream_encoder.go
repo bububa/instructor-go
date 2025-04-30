@@ -61,7 +61,7 @@ func (e *StreamEncoder) Context() []byte {
 		}
 		b.Write(bs)
 	}
-	b.WriteString("\n")
+	b.WriteString("\nDo not output anything else except the list.\n")
 	// b.WriteString("\nMake sure to return a list with the elements an instance of the YAML, not the schema itself.\n")
 	return b.Bytes()
 }
