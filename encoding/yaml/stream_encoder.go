@@ -45,10 +45,8 @@ func (e *StreamEncoder) Marshal(req any) ([]byte, error) {
 func (e *StreamEncoder) Context() []byte {
 	var b bytes.Buffer
 	b.WriteString("\nPlease respond with a list where the elements following YAML schema which is seperated by '----' for each elements:\n\n")
-	for i := range 3 {
-		if i > 0 {
-			b.WriteString("----\n")
-		}
+	for range 3 {
+		b.WriteString("----\n")
 		instance := reflect.New(e.reqType).Interface()
 		if f, ok := instance.(instructor.Faker); ok {
 			instance = f.Fake()
@@ -61,6 +59,7 @@ func (e *StreamEncoder) Context() []byte {
 		}
 		b.Write(bs)
 	}
+	b.WriteString("\n----\n")
 	b.WriteString("\nDo not output anything else except the list.\n")
 	// b.WriteString("\nMake sure to return a list with the elements an instance of the YAML, not the schema itself.\n")
 	return b.Bytes()
