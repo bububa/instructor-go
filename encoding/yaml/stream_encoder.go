@@ -11,6 +11,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/bububa/instructor-go"
+	"github.com/bububa/instructor-go/internal"
 )
 
 type StreamEncoder struct {
@@ -43,10 +44,10 @@ func (e *StreamEncoder) Marshal(req any) ([]byte, error) {
 
 func (e *StreamEncoder) Context() []byte {
 	var b bytes.Buffer
-	b.WriteString("\nPlease respond with a YAML array where the elements following YAML schema which is seperated by a blank line for each elements:\n\n")
+	b.WriteString("\nPlease respond with a list where the elements following YAML schema which is seperated by '----' for each elements:\n\n")
 	for i := range 3 {
 		if i > 0 {
-			b.WriteString("\n\n")
+			b.WriteString("----\n")
 		}
 		instance := reflect.New(e.reqType).Interface()
 		if f, ok := instance.(instructor.Faker); ok {
@@ -60,7 +61,8 @@ func (e *StreamEncoder) Context() []byte {
 		}
 		b.Write(bs)
 	}
-	b.WriteString("\nMake sure to return an array with the elements an instance of the YAML, not the schema itself.\n")
+	b.WriteString("\n")
+	// b.WriteString("\nMake sure to return a list with the elements an instance of the YAML, not the schema itself.\n")
 	return b.Bytes()
 }
 
@@ -120,7 +122,7 @@ func (e *StreamEncoder) processBuffer(parsedChan chan<- any) {
 	})
 	for scanner.Scan() {
 		bs := scanner.Bytes()
-		if trimmed := bytes.TrimSpace(bs); len(trimmed) == 0 {
+		if trimmed := bytes.TrimSpace(bs); internal.IsAllSameByte(trimmed, '-') && len(trimmed) > 1 {
 			if block.Len() > 0 {
 				in := bytes.TrimSuffix(bytes.TrimPrefix(bytes.TrimSpace(block.Bytes()), IGNORE_PREFIX), IGNORE_SUFFIX)
 				instance := reflect.New(e.reqType).Interface()
