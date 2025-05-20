@@ -40,6 +40,17 @@ func (i *Instructor) Handler(ctx context.Context, request *openai.ChatCompletion
 			req.ExtraBody = extraBody
 		}
 	}
+	if thinking := i.ThinkingConfig(); thinking != nil {
+		if thinking.Enabled {
+			req.Thinking = openai.ThinkingTypeEnabled
+		} else {
+			req.Thinking = openai.ThinkingTypeDisabled
+		}
+		req.ChatTemplateKwargs = map[string]any{
+			"enable_thinking": thinking.Enabled,
+			"thinking_budget": thinking.Budget,
+		}
+	}
 	switch i.Mode() {
 	case instructor.ModeToolCall:
 		return i.chatToolCall(ctx, req, response, false)

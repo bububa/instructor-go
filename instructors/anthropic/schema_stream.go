@@ -72,8 +72,12 @@ func (i *Instructor) createStream(ctx context.Context, request *anthropic.Messag
 	request.Stream = true
 	if thinking := i.ThinkingConfig(); thinking != nil {
 		request.Thinking = &anthropic.Thinking{
-			Type:         anthropic.ThinkingTypeEnabled,
 			BudgetTokens: thinking.Budget,
+		}
+		if thinking.Enabled {
+			request.Thinking.Type = anthropic.ThinkingTypeEnabled
+		} else {
+			request.Thinking.Type = anthropic.ThinkingTypeDisabled
 		}
 	}
 	toolCall := len(request.Tools) > 0

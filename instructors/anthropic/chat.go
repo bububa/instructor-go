@@ -21,8 +21,12 @@ func (i *Instructor) Chat(ctx context.Context, request *anthropic.MessagesReques
 func (i *Instructor) Handler(ctx context.Context, request *anthropic.MessagesRequest, response *anthropic.MessagesResponse) (string, error) {
 	if thinking := i.ThinkingConfig(); thinking != nil {
 		request.Thinking = &anthropic.Thinking{
-			Type:         anthropic.ThinkingTypeEnabled,
 			BudgetTokens: thinking.Budget,
+		}
+		if thinking.Enabled {
+			request.Thinking.Type = anthropic.ThinkingTypeEnabled
+		} else {
+			request.Thinking.Type = anthropic.ThinkingTypeDisabled
 		}
 	}
 	switch i.Mode() {
