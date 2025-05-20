@@ -41,9 +41,15 @@ func (i *Instructor) Handler(ctx context.Context, request *openai.ChatCompletion
 		}
 	}
 	if thinking := i.ThinkingConfig(); thinking != nil {
-		request.Thinking = openai.ThinkingTypeEnabled
-	} else {
-		request.Thinking = openai.ThinkingTypeDisabled
+		if thinking.Enabled {
+			req.Thinking = openai.ThinkingTypeEnabled
+		} else {
+			req.Thinking = openai.ThinkingTypeDisabled
+		}
+		req.ChatTemplateKwargs = map[string]any{
+			"enable_thinking": thinking.Enabled,
+			"thinking_budget": thinking.Budget,
+		}
 	}
 	switch i.Mode() {
 	case instructor.ModeToolCall:

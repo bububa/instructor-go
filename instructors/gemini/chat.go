@@ -11,6 +11,7 @@ import (
 
 	"github.com/bububa/instructor-go"
 	jsonenc "github.com/bububa/instructor-go/encoding/json"
+	"github.com/bububa/instructor-go/internal"
 	"github.com/bububa/instructor-go/internal/chat"
 )
 
@@ -49,7 +50,8 @@ func (i *Instructor) chatToolCall(ctx context.Context, request Request, response
 	}
 	if thinkingConfig := i.ThinkingConfig(); thinkingConfig != nil {
 		cfg.ThinkingConfig = &gemini.ThinkingConfig{
-			IncludeThoughts: true,
+			IncludeThoughts: thinkingConfig.Enabled,
+			ThinkingBudget:  internal.ToPtr(int32(thinkingConfig.Budget)),
 		}
 	}
 
@@ -151,7 +153,8 @@ func (i *Instructor) completion(ctx context.Context, request Request, response *
 	}
 	if thinkingConfig := i.ThinkingConfig(); thinkingConfig != nil {
 		cfg.ThinkingConfig = &gemini.ThinkingConfig{
-			IncludeThoughts: true,
+			IncludeThoughts: thinkingConfig.Enabled,
+			ThinkingBudget:  internal.ToPtr(int32(thinkingConfig.Budget)),
 		}
 	}
 

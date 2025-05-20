@@ -74,9 +74,15 @@ func (i *Instructor) createStream(ctx context.Context, request *openai.ChatCompl
 		request.ExtraBody = extraBody
 	}
 	if thinking := i.ThinkingConfig(); thinking != nil {
-		request.Thinking = openai.ThinkingTypeEnabled
-  } else {
-		request.Thinking = openai.ThinkingTypeDisabled
+		if thinking.Enabled {
+			request.Thinking = openai.ThinkingTypeEnabled
+		} else {
+			request.Thinking = openai.ThinkingTypeDisabled
+		}
+		request.ChatTemplateKwargs = map[string]any{
+			"enable_thinking": thinking.Enabled,
+			"thinking_budget": thinking.Budget,
+		}
 	}
 
 	if i.Verbose() {

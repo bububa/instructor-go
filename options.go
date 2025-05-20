@@ -9,7 +9,8 @@ const (
 type Option func(o *Options)
 
 type ThinkingConfig struct {
-	Budget int
+	Enabled bool
+	Budget  int
 }
 
 type Options struct {
@@ -65,7 +66,17 @@ func WithMaxRetries(maxRetries int) Option {
 func WithThinking(budget int) Option {
 	return func(o *Options) {
 		o.thinkingConfig = &ThinkingConfig{
-			Budget: budget,
+			Enabled: true,
+			Budget:  budget,
+		}
+	}
+}
+
+func WithoutThinking() Option {
+	return func(o *Options) {
+		o.thinkingConfig = &ThinkingConfig{
+			Enabled: false,
+			Budget:  0,
 		}
 	}
 }
