@@ -84,6 +84,7 @@ func (e *Encoder) Context() []byte {
 	b.WriteString("```yaml\n")
 	b.Write(bs)
 	b.WriteString("```")
+	b.WriteString("\nDo not forget quote the field value which contains special characters for YAML.\n")
 	b.WriteString("\nMake sure to return an instance of the YAML, not the schema itself\n")
 	return b.Bytes()
 }
