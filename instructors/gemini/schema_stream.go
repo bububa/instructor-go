@@ -132,6 +132,7 @@ func (i *Instructor) createStream(_ context.Context, iter iter.Seq2[*gemini.Gene
 				log.Println(sb.String())
 			}()
 		}
+		var toolCall *instructor.ToolCall
 		for resp, err := range iter {
 			if err == iterator.Done {
 				return
@@ -145,6 +146,17 @@ func (i *Instructor) createStream(_ context.Context, iter iter.Seq2[*gemini.Gene
 					continue
 				}
 				for _, part := range cand.Content.Parts {
+					if fcCall := part.FunctionCall; fcCall != nil {
+						if toolCall == nil {
+							bs, _ := json.Marshal(fcCall.Args)
+							toolCall = &instructor.ToolCall{
+								ID:      fcCall.ID,
+								Name:    fcCall.Name,
+								Content: string(bs),
+							}
+							ch <- instructor.StreamData{Type: instructor.ToolStream, ToolCall: toolCall}
+						}
+					}
 					if part.Thought {
 						ch <- instructor.StreamData{Type: instructor.ThinkingStream, Content: part.Text}
 					} else if text := part.Text; text != "" {

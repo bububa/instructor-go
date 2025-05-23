@@ -40,8 +40,11 @@ func main() {
 	cfg.BaseURL = os.Getenv("OPENAI_API_BASE_URL")
 	client := instructors.FromOpenAI(
 		openai.NewClientWithConfig(cfg),
-		instructor.WithMode(instructor.ModeJSON),
+		instructor.WithMode(instructor.ModeToolCall),
 		instructor.WithVerbose(),
+		instructor.WithExtraBody(map[string]any{
+			"enable_thinking": false,
+		}),
 	)
 
 	profileData := `

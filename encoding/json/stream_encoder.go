@@ -24,7 +24,7 @@ type StreamEncoder struct {
 	validate bool
 }
 
-func NewStreamEncoder(req any, validate bool) (*StreamEncoder, error) {
+func NewStreamEncoder(req any, validate bool, namer instructor.SchemaNamer) (*StreamEncoder, error) {
 	t := reflect.TypeOf(req)
 	streamWrapperType := reflect.StructOf([]reflect.StructField{
 		{
@@ -34,7 +34,7 @@ func NewStreamEncoder(req any, validate bool) (*StreamEncoder, error) {
 			Anonymous: false,
 		},
 	})
-	schema, err := instructor.NewSchema(streamWrapperType)
+	schema, err := instructor.NewSchema(streamWrapperType, namer)
 	if err != nil {
 		return nil, err
 	}

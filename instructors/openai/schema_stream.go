@@ -38,7 +38,7 @@ func (i *Instructor) SchemaStreamHandler(ctx context.Context, request *openai.Ch
 
 func (i *Instructor) chatToolCallStream(ctx context.Context, request openai.ChatCompletionRequest, response *openai.ChatCompletionResponse, strict bool) (<-chan instructor.StreamData, error) {
 	var schema *instructor.Schema
-	if enc, ok := i.StreamEncoder().(*jsonenc.StreamEncoder); ok {
+	if enc, ok := i.Encoder().(*jsonenc.Encoder); ok {
 		schema = enc.Schema()
 	} else {
 		return nil, errors.New("encoder must be JSON Encoder")
@@ -106,6 +106,12 @@ func (i *Instructor) createStream(ctx context.Context, request *openai.ChatCompl
 				log.Println(bs.String())
 			}()
 		}
+		toolCalls := make(map[int]*instructor.ToolCall)
+		defer func() {
+			for _, tool := range toolCalls {
+				ch <- instructor.StreamData{Type: instructor.ToolStream, ToolCall: tool}
+			}
+		}()
 		for {
 			resp, err := stream.Recv()
 			if errors.Is(err, io.EOF) {
@@ -123,6 +129,22 @@ func (i *Instructor) createStream(ctx context.Context, request *openai.ChatCompl
 				response.Usage = *resp.Usage
 			}
 			if len(resp.Choices) > 0 {
+				if tools := resp.Choices[0].Delta.ToolCalls; len(tools) > 0 {
+					for _, v := range tools {
+						if v.Index == nil {
+							continue
+						}
+						if tool, ok := toolCalls[*v.Index]; ok {
+							tool.Content += v.Function.Arguments
+						} else {
+							toolCalls[*v.Index] = &instructor.ToolCall{
+								ID:      v.ID,
+								Name:    v.Function.Name,
+								Content: v.Function.Arguments,
+							}
+						}
+					}
+				}
 				if text := resp.Choices[0].Delta.ReasoningContent; text != "" {
 					ch <- instructor.StreamData{Type: instructor.ThinkingStream, Content: text}
 				} else if text := resp.Choices[0].Delta.Content; text != "" {

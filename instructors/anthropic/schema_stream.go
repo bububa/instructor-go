@@ -83,8 +83,21 @@ func (i *Instructor) createStream(ctx context.Context, request *anthropic.Messag
 	toolCall := len(request.Tools) > 0
 	ch := make(chan instructor.StreamData)
 	sb := new(bytes.Buffer)
+	var toolUse *instructor.ToolCall
 	streamReq := anthropic.MessagesStreamRequest{
 		MessagesRequest: *request,
+		OnContentBlockStart: func(data anthropic.MessagesEventContentBlockStartData) {
+			if tool := data.ContentBlock.MessageContentToolUse; tool != nil {
+				toolUse = new(instructor.ToolCall)
+				toolUse.ID = tool.ID
+				toolUse.Name = tool.Name
+			}
+		},
+		OnContentBlockStop: func(data anthropic.MessagesEventContentBlockStopData, _ anthropic.MessageContent) {
+			if toolUse != nil {
+				ch <- instructor.StreamData{Type: instructor.ToolStream, ToolCall: toolUse}
+			}
+		},
 		OnContentBlockDelta: func(data anthropic.MessagesEventContentBlockDeltaData) {
 			if thinking := data.Delta.MessageContentThinking; thinking != nil {
 				ch <- instructor.StreamData{Type: instructor.ThinkingStream, Content: thinking.Thinking}
@@ -94,7 +107,9 @@ func (i *Instructor) createStream(ctx context.Context, request *anthropic.Messag
 					if i.Verbose() {
 						sb.WriteString(*partial)
 					}
-					ch <- instructor.StreamData{Type: instructor.ContentStream, Content: *partial}
+					if toolUse != nil {
+						toolUse.Content += *partial
+					}
 				}
 			} else if text := data.Delta.Text; text != nil {
 				if i.Verbose() {

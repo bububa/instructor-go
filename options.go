@@ -21,6 +21,7 @@ type Options struct {
 	maxRetries     int
 	thinkingConfig *ThinkingConfig
 	extraBody      map[string]any
+	schemaNamer    SchemaNamer
 	validate       bool
 	verbose        bool
 	// Provider specific options:
@@ -54,6 +55,12 @@ func WithEncoder(enc Encoder) Option {
 func WithStreamEncoder(enc StreamEncoder) Option {
 	return func(o *Options) {
 		o.streamEnc = enc
+	}
+}
+
+func WithSchemaNamer(namer SchemaNamer) Option {
+	return func(o *Options) {
+		o.schemaNamer = namer
 	}
 }
 
@@ -129,6 +136,10 @@ func (i Options) ThinkingConfig() *ThinkingConfig {
 
 func (i Options) ExtraBody() map[string]any {
 	return i.extraBody
+}
+
+func (i Options) SchemaNamer() SchemaNamer {
+	return i.schemaNamer
 }
 
 func (i Options) MaxRetries() int {
