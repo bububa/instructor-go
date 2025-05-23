@@ -37,7 +37,7 @@ func (i *Instructor) Stream(
 	req := *request
 	if responseType != nil {
 		if i.Encoder() == nil {
-			if enc, err := encoding.PredefinedEncoder(i.Mode(), responseType); err != nil {
+			if enc, err := encoding.PredefinedEncoder(i.Mode(), responseType, i.SchemaNamer()); err != nil {
 				return nil, err
 			} else {
 				i.SetEncoder(enc)

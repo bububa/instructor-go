@@ -16,7 +16,7 @@ func Handler[T any, RESP any](i instructor.ChatInstructor[T, RESP], ctx context.
 		err error
 	)
 	if enc == nil {
-		if enc, err = encoding.PredefinedEncoder(i.Mode(), responseType); err != nil {
+		if enc, err = encoding.PredefinedEncoder(i.Mode(), responseType, i.SchemaNamer()); err != nil {
 			return err
 		}
 		i.SetEncoder(enc)

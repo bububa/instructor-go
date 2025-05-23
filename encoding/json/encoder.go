@@ -14,9 +14,9 @@ type Encoder struct {
 	schema *instructor.Schema
 }
 
-func NewEncoder(req any) (*Encoder, error) {
+func NewEncoder(req any, namer instructor.SchemaNamer) (*Encoder, error) {
 	t := reflect.TypeOf(req)
-	schema, err := instructor.NewSchema(t)
+	schema, err := instructor.NewSchema(t, namer)
 	if err != nil {
 		return nil, err
 	}

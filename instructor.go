@@ -15,6 +15,7 @@ type Instructor interface {
 	Encoder() Encoder
 	SetStreamEncoder(enc StreamEncoder)
 	StreamEncoder() StreamEncoder
+	SchemaNamer() SchemaNamer
 	MaxRetries() int
 	Validate() bool
 	Verbose() bool
@@ -71,9 +72,11 @@ type StreamDataType int
 const (
 	ContentStream StreamDataType = iota
 	ThinkingStream
+	ToolStream
 )
 
 type StreamData struct {
-	Type    StreamDataType `json:"type,omitempty"`
-	Content string         `json:"content,omitempty"`
+	Type     StreamDataType `json:"type,omitempty"`
+	Content  string         `json:"content,omitempty"`
+	ToolCall *ToolCall      `json:"tool_call,omitempty"`
 }
