@@ -1,6 +1,7 @@
 package openai
 
 import (
+	"github.com/mark3labs/mcp-go/mcp"
 	openai "github.com/sashabaranov/go-openai"
 
 	"github.com/bububa/instructor-go"
@@ -9,6 +10,7 @@ import (
 type Instructor struct {
 	*openai.Client
 	instructor.Options
+	tools map[string]*mcp.Tool
 }
 
 func (i *Instructor) SetClient(clt *openai.Client) {

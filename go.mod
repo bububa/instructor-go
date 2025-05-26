@@ -2,7 +2,7 @@ module github.com/bububa/instructor-go
 
 go 1.23.5
 
-replace github.com/sashabaranov/go-openai => github.com/bububa/go-openai v1.0.5
+replace github.com/sashabaranov/go-openai => github.com/bububa/go-openai v1.0.6
 
 require (
 	github.com/BurntSushi/toml v1.5.0
@@ -13,6 +13,7 @@ require (
 	github.com/go-playground/validator/v10 v10.26.0
 	github.com/invopop/jsonschema v0.13.0
 	github.com/liushuangls/go-anthropic/v2 v2.15.0
+	github.com/mark3labs/mcp-go v0.29.0
 	github.com/sashabaranov/go-openai v1.40.0
 	google.golang.org/api v0.233.0
 	google.golang.org/genai v1.6.0
@@ -47,6 +48,7 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/spf13/cast v1.8.0 // indirect
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
+	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.60.0 // indirect
 	go.opentelemetry.io/otel v1.35.0 // indirect

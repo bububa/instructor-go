@@ -40,5 +40,5 @@ func (i *Instructor) Stream(
 			req.ResponseFormat = &openai.ChatCompletionResponseFormat{Type: openai.ChatCompletionResponseFormatTypeText}
 		}
 	}
-	return i.createStream(ctx, &req, response)
+	return i.createStream(ctx, req, response, false)
 }

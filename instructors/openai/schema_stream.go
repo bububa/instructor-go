@@ -44,7 +44,7 @@ func (i *Instructor) chatToolCallStream(ctx context.Context, request openai.Chat
 		return nil, errors.New("encoder must be JSON Encoder")
 	}
 	request.Tools = createOpenAITools(schema, strict)
-	return i.createStream(ctx, &request, response)
+	return i.createStream(ctx, request, response, false)
 }
 
 func (i *Instructor) chatSchemaStream(ctx context.Context, request openai.ChatCompletionRequest, response *openai.ChatCompletionResponse) (<-chan instructor.StreamData, error) {
@@ -61,10 +61,11 @@ func (i *Instructor) chatSchemaStream(ctx context.Context, request openai.ChatCo
 	} else {
 		request.ResponseFormat = &openai.ChatCompletionResponseFormat{Type: openai.ChatCompletionResponseFormatTypeText}
 	}
-	return i.createStream(ctx, &request, response)
+	return i.createStream(ctx, request, response, false)
 }
 
-func (i *Instructor) createStream(ctx context.Context, request *openai.ChatCompletionRequest, response *openai.ChatCompletionResponse) (<-chan instructor.StreamData, error) {
+func (i *Instructor) createStream(ctx context.Context, request openai.ChatCompletionRequest, response *openai.ChatCompletionResponse, toolRequest bool) (<-chan instructor.StreamData, error) {
+	i.InjectMCP(ctx, &request)
 	request.Stream = true
 	if request.StreamOptions == nil {
 		request.StreamOptions = new(openai.StreamOptions)
@@ -75,9 +76,13 @@ func (i *Instructor) createStream(ctx context.Context, request *openai.ChatCompl
 	}
 	if thinking := i.ThinkingConfig(); thinking != nil {
 		if thinking.Enabled {
-			request.Thinking = openai.ThinkingTypeEnabled
+			request.Thinking = &openai.Thinking {
+        Type: openai.ThinkingTypeEnabled,
+    }
 		} else {
-			request.Thinking = openai.ThinkingTypeDisabled
+			request.Thinking = &openai.Thinking {
+        Type:openai.ThinkingTypeDisabled,
+      }
 		}
 		request.ChatTemplateKwargs = map[string]any{
 			"enable_thinking": thinking.Enabled,
@@ -89,7 +94,7 @@ func (i *Instructor) createStream(ctx context.Context, request *openai.ChatCompl
 		bs, _ := json.MarshalIndent(request, "", "  ")
 		log.Printf("%s Request: %s\n", i.Provider(), string(bs))
 	}
-	stream, err := i.CreateChatCompletionStream(ctx, *request)
+	stream, err := i.CreateChatCompletionStream(ctx, request)
 	if err != nil {
 		return nil, err
 	}
@@ -100,18 +105,49 @@ func (i *Instructor) createStream(ctx context.Context, request *openai.ChatCompl
 		defer stream.Close()
 		defer close(ch)
 		bs := new(bytes.Buffer)
-		if i.Verbose() {
+		toolCallMap := make(map[int]instructor.ToolCall)
+		if i.Verbose() && !toolRequest {
 			fmt.Fprintf(bs, "%s Response: \n", i.Provider())
 			defer func() {
 				log.Println(bs.String())
 			}()
 		}
-		toolCalls := make(map[int]*instructor.ToolCall)
-		defer func() {
-			for _, tool := range toolCalls {
-				ch <- instructor.StreamData{Type: instructor.ToolStream, ToolCall: tool}
-			}
-		}()
+    defer func() {
+      if len(toolCallMap) > 0 {
+        toolCalls := make([]openai.ToolCall, 0, len(toolCallMap))
+        for _, toolCall := range toolCallMap {
+          openaiToolCall := openai.ToolCall{
+            ID:   toolCall.ID,
+            Type: openai.ToolTypeFunction,
+            Function: openai.FunctionCall{
+              Name:      toolCall.Name,
+              Arguments: toolCall.Content,
+            },
+          }
+          toolCalls = append(toolCalls, openaiToolCall)
+        }
+        request.Messages = append(request.Messages, openai.ChatCompletionMessage{
+          Role:      openai.ChatMessageRoleAssistant, // 模型角色
+          ToolCalls: toolCalls,
+        })
+        for _, toolCall := range toolCalls {
+          if err := i.CallMCP(ctx, &toolCall, &request); err != nil && i.Verbose() {
+            log.Printf("%s MCP Error: %v\n", i.Provider(), err)
+          }
+        }
+        tmpCh, err := i.createStream(ctx, request, response, true)
+        if err != nil {
+          return
+        }
+        for v := range tmpCh {
+          if i.Verbose() && v.Type == instructor.ContentStream {
+						bs.WriteString(v.Content)
+          }
+          ch <- v
+        }
+        // ch <- instructor.StreamData{Type: instructor.ToolStream, ToolCall: toolCall}
+      }
+    }()
 		for {
 			resp, err := stream.Recv()
 			if errors.Is(err, io.EOF) {
@@ -129,21 +165,28 @@ func (i *Instructor) createStream(ctx context.Context, request *openai.ChatCompl
 				response.Usage = *resp.Usage
 			}
 			if len(resp.Choices) > 0 {
-				if tools := resp.Choices[0].Delta.ToolCalls; len(tools) > 0 {
+				delta := resp.Choices[0].Delta
+				if tools := delta.ToolCalls; len(tools) > 0 {
 					for _, v := range tools {
 						if v.Index == nil {
 							continue
 						}
-						if tool, ok := toolCalls[*v.Index]; ok {
-							tool.Content += v.Function.Arguments
-						} else {
-							toolCalls[*v.Index] = &instructor.ToolCall{
+						toolCall, ok := toolCallMap[*v.Index]
+						if !ok {
+							toolCall = instructor.ToolCall{
 								ID:      v.ID,
-								Name:    v.Function.Name,
 								Content: v.Function.Arguments,
 							}
+						} else {
+							toolCall.Content += v.Function.Arguments
 						}
+						if v.Function.Name != "" {
+							toolCall.Name = v.Function.Name
+						}
+						toolCallMap[*v.Index] = toolCall
 					}
+				// } else if len(toolCallMap) > 0 && delta.Content == "" && delta.Role == "" && delta.FunctionCall == nil {
+				// 	break
 				}
 				if text := resp.Choices[0].Delta.ReasoningContent; text != "" {
 					ch <- instructor.StreamData{Type: instructor.ThinkingStream, Content: text}
