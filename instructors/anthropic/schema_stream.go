@@ -95,7 +95,7 @@ func (i *Instructor) createStream(ctx context.Context, request *anthropic.Messag
 		},
 		OnContentBlockStop: func(data anthropic.MessagesEventContentBlockStopData, _ anthropic.MessageContent) {
 			if toolUse != nil {
-				ch <- instructor.StreamData{Type: instructor.ToolStream, ToolCall: toolUse}
+//				ch <- instructor.StreamData{Type: instructor.ToolStream, ToolCall: toolUse}
 			}
 		},
 		OnContentBlockDelta: func(data anthropic.MessagesEventContentBlockDeltaData) {

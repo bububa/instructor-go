@@ -20,6 +20,7 @@ type Options struct {
 	streamEnc      StreamEncoder
 	maxRetries     int
 	thinkingConfig *ThinkingConfig
+	mcpTools       []MCPTool
 	extraBody      map[string]any
 	schemaNamer    SchemaNamer
 	validate       bool
@@ -94,6 +95,12 @@ func WithExtraBody(v map[string]any) Option {
 	}
 }
 
+func WithMCPTools(tools ...MCPTool) Option {
+	return func(o *Options) {
+		o.mcpTools = tools
+	}
+}
+
 func WithValidation() Option {
 	return func(o *Options) {
 		o.validate = true
@@ -136,6 +143,10 @@ func (i Options) ThinkingConfig() *ThinkingConfig {
 
 func (i Options) ExtraBody() map[string]any {
 	return i.extraBody
+}
+
+func (i Options) MCPTools() []MCPTool {
+	return i.mcpTools
 }
 
 func (i Options) SchemaNamer() SchemaNamer {

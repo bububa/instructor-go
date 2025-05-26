@@ -16,6 +16,7 @@ type Instructor interface {
 	SetStreamEncoder(enc StreamEncoder)
 	StreamEncoder() StreamEncoder
 	SchemaNamer() SchemaNamer
+	MCPTools() []MCPTool
 	MaxRetries() int
 	Validate() bool
 	Verbose() bool
@@ -78,5 +79,4 @@ const (
 type StreamData struct {
 	Type     StreamDataType `json:"type,omitempty"`
 	Content  string         `json:"content,omitempty"`
-	ToolCall *ToolCall      `json:"tool_call,omitempty"`
 }

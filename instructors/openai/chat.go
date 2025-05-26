@@ -42,9 +42,13 @@ func (i *Instructor) Handler(ctx context.Context, request *openai.ChatCompletion
 	}
 	if thinking := i.ThinkingConfig(); thinking != nil {
 		if thinking.Enabled {
-			req.Thinking = openai.ThinkingTypeEnabled
+			req.Thinking = &openai.Thinking{
+				Type: openai.ThinkingTypeEnabled,
+			}
 		} else {
-			req.Thinking = openai.ThinkingTypeDisabled
+			req.Thinking = &openai.Thinking{
+				Type: openai.ThinkingTypeDisabled,
+			}
 		}
 		req.ChatTemplateKwargs = map[string]any{
 			"enable_thinking": thinking.Enabled,
@@ -179,17 +183,11 @@ func (i *Instructor) chatJSON(ctx context.Context, request openai.ChatCompletion
 			Type: openai.ChatCompletionResponseFormatTypeJSONObject,
 		}
 	}
-	if i.Verbose() {
-		bs, _ := json.MarshalIndent(request, "", "  ")
-		log.Printf("%s Request: %s\n", i.Provider(), string(bs))
-	}
 
-	resp, err := i.CreateChatCompletion(ctx, request)
+	text, err := i.chatCompletionWrapper(ctx, request, response)
 	if err != nil {
 		return "", err
 	}
-
-	text := resp.Choices[0].Message.Content
 
 	if strict {
 		resMap := make(map[string]any)
@@ -197,9 +195,6 @@ func (i *Instructor) chatJSON(ctx context.Context, request openai.ChatCompletion
 
 		cleanedText, _ := json.Marshal(resMap[structName])
 		text = string(cleanedText)
-	}
-	if response != nil {
-		*response = resp
 	}
 	return text, nil
 }
@@ -215,17 +210,40 @@ func (i *Instructor) chatCompletion(ctx context.Context, request openai.ChatComp
 		}
 	}
 	// request.Messages = internal.Prepend(request.Messages, *createJSONMessage(schema))
+	return i.chatCompletionWrapper(ctx, request, response)
+}
 
+func (i *Instructor) chatCompletionWrapper(ctx context.Context, request openai.ChatCompletionRequest, response *openai.ChatCompletionResponse) (string, error) {
+	i.InjectMCP(ctx, &request)
 	if i.Verbose() {
 		bs, _ := json.MarshalIndent(request, "", "  ")
 		log.Printf("%s Request: %s\n", i.Provider(), string(bs))
 	}
-
 	resp, err := i.CreateChatCompletion(ctx, request)
 	if err != nil {
 		return "", err
 	}
-
+	if i.Verbose() {
+		bs, _ := json.MarshalIndent(resp, "", "  ")
+		log.Printf("%s Response: %s\n", i.Provider(), string(bs))
+	}
+	if len(resp.Choices[0].Message.ToolCalls) > 0 {
+		toolCalls := make([]openai.ToolCall, 0, len(resp.Choices[0].Message.ToolCalls))
+		for _, toolCall := range resp.Choices[0].Message.ToolCalls {
+			if toolCall.Type == openai.ToolTypeFunction {
+				toolCalls = append(toolCalls, toolCall)
+			}
+		}
+		if len(toolCalls) > 0 {
+			request.Messages = append(request.Messages, resp.Choices[0].Message)
+			for _, toolCall := range toolCalls {
+				if err := i.CallMCP(ctx, &toolCall, &request); err != nil && i.Verbose() {
+					log.Printf("%s MCP Error: %v\n", i.Provider(), err)
+				}
+			}
+			return i.chatCompletionWrapper(ctx, request, response)
+		}
+	}
 	text := resp.Choices[0].Message.Content
 	if response != nil {
 		*response = resp

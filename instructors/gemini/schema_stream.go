@@ -154,7 +154,7 @@ func (i *Instructor) createStream(_ context.Context, iter iter.Seq2[*gemini.Gene
 								Name:    fcCall.Name,
 								Content: string(bs),
 							}
-							ch <- instructor.StreamData{Type: instructor.ToolStream, ToolCall: toolCall}
+							// ch <- instructor.StreamData{Type: instructor.ToolStream, ToolCall: toolCall}
 						}
 					}
 					if part.Thought {
