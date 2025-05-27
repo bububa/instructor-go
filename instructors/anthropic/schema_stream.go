@@ -53,7 +53,7 @@ func (i *Instructor) chatToolCallStream(ctx context.Context, request anthropic.M
 		}
 		request.Tools = append(request.Tools, t)
 	}
-	return i.createStream(ctx, &request, response)
+	return i.createStream(ctx, request, response, false)
 }
 
 func (i *Instructor) chatSchemaStream(ctx context.Context, request anthropic.MessagesRequest, response *anthropic.MessagesResponse) (<-chan instructor.StreamData, error) {
@@ -65,10 +65,10 @@ func (i *Instructor) chatSchemaStream(ctx context.Context, request anthropic.Mes
 			request.System = fmt.Sprintf("%s\n\n#OUTPUT SCHEMA\n%s", request.System, bs)
 		}
 	}
-	return i.createStream(ctx, &request, response)
+	return i.createStream(ctx, request, response, false)
 }
 
-func (i *Instructor) createStream(ctx context.Context, request *anthropic.MessagesRequest, response *anthropic.MessagesResponse) (<-chan instructor.StreamData, error) {
+func (i *Instructor) createStream(ctx context.Context, request anthropic.MessagesRequest, response *anthropic.MessagesResponse, toolRequest bool) (<-chan instructor.StreamData, error) {
 	request.Stream = true
 	if thinking := i.ThinkingConfig(); thinking != nil {
 		request.Thinking = &anthropic.Thinking{
@@ -80,42 +80,41 @@ func (i *Instructor) createStream(ctx context.Context, request *anthropic.Messag
 			request.Thinking.Type = anthropic.ThinkingTypeDisabled
 		}
 	}
-	toolCall := len(request.Tools) > 0
 	ch := make(chan instructor.StreamData)
 	sb := new(bytes.Buffer)
-	var toolUse *instructor.ToolCall
+	toolCallMap := make(map[int]anthropic.MessageContentToolUse)
+	toolUseInput := make(map[int]string)
 	streamReq := anthropic.MessagesStreamRequest{
-		MessagesRequest: *request,
+		MessagesRequest: request,
 		OnContentBlockStart: func(data anthropic.MessagesEventContentBlockStartData) {
-			if tool := data.ContentBlock.MessageContentToolUse; tool != nil {
-				toolUse = new(instructor.ToolCall)
-				toolUse.ID = tool.ID
-				toolUse.Name = tool.Name
-			}
-		},
-		OnContentBlockStop: func(data anthropic.MessagesEventContentBlockStopData, _ anthropic.MessageContent) {
-			if toolUse != nil {
-//				ch <- instructor.StreamData{Type: instructor.ToolStream, ToolCall: toolUse}
+			if data.ContentBlock.Type == anthropic.MessagesContentTypeToolUse {
+				if tool := data.ContentBlock.MessageContentToolUse; tool != nil {
+					toolCallMap[data.Index] = anthropic.MessageContentToolUse{
+						ID:   tool.ID,
+						Name: tool.Name,
+					}
+				}
 			}
 		},
 		OnContentBlockDelta: func(data anthropic.MessagesEventContentBlockDeltaData) {
-			if thinking := data.Delta.MessageContentThinking; thinking != nil {
-				ch <- instructor.StreamData{Type: instructor.ThinkingStream, Content: thinking.Thinking}
-			}
-			if toolCall {
-				if partial := data.Delta.PartialJson; partial != nil {
+			switch data.Delta.Type {
+			case anthropic.MessagesContentTypeToolUse:
+				if tool := data.Delta.MessageContentToolUse; tool != nil {
+					if _, ok := toolCallMap[data.Index]; ok {
+						if partial := data.Delta.PartialJson; partial != nil {
+							toolUseInput[data.Index] += *partial
+						}
+					}
+				}
+			case anthropic.MessagesContentTypeText:
+				if thinking := data.Delta.MessageContentThinking; thinking != nil {
+					ch <- instructor.StreamData{Type: instructor.ThinkingStream, Content: thinking.Thinking}
+				} else if text := data.Delta.Text; text != nil {
 					if i.Verbose() {
-						sb.WriteString(*partial)
+						sb.WriteString(*text)
 					}
-					if toolUse != nil {
-						toolUse.Content += *partial
-					}
+					ch <- instructor.StreamData{Type: instructor.ContentStream, Content: *text}
 				}
-			} else if text := data.Delta.Text; text != nil {
-				if i.Verbose() {
-					sb.WriteString(*text)
-				}
-				ch <- instructor.StreamData{Type: instructor.ContentStream, Content: *text}
 			}
 		},
 	}
@@ -128,15 +127,57 @@ func (i *Instructor) createStream(ctx context.Context, request *anthropic.Messag
 	if i.Verbose() {
 		bs, _ := json.MarshalIndent(request, "", "  ")
 		log.Printf("%s Request: %s\n", i.Provider(), string(bs))
-		fmt.Fprintf(sb, "%s Response: \n", i.Provider())
 	}
 	go func() {
 		defer close(ch)
-		if i.Verbose() {
+		if i.Verbose() && !toolRequest {
 			defer func() {
+				fmt.Fprintf(sb, "%s Response: \n", i.Provider())
 				log.Println(sb.String())
 			}()
 		}
+		defer func() {
+			toolCalls := make([]anthropic.MessageContentToolUse, 0, len(toolCallMap))
+			contents := make([]anthropic.MessageContent, 0, len(toolCallMap))
+			for idx, toolCall := range toolCallMap {
+				input, ok := toolUseInput[idx]
+				if !ok {
+					continue
+				}
+				toolCall.Input = []byte(input)
+				toolCalls = append(toolCalls, toolCall)
+				contents = append(contents, anthropic.NewToolUseMessageContent(toolCall.ID, toolCall.Name, toolCall.Input))
+			}
+			if len(toolCalls) == 0 {
+				return
+			}
+			request.Messages = append(request.Messages, anthropic.Message{
+				Role:    anthropic.RoleAssistant,
+				Content: contents,
+			})
+			messageContents := make([]anthropic.MessageContent, 0, len(toolCalls))
+			for _, toolCall := range toolCalls {
+				content, call := i.CallMCP(ctx, &toolCall)
+				if call != nil {
+					ch <- instructor.StreamData{Type: instructor.ToolCallStream, ToolCall: call}
+				}
+				messageContents = append(messageContents, content)
+			}
+			request.Messages = append(request.Messages, anthropic.Message{
+				Role:    anthropic.RoleUser,
+				Content: messageContents,
+			})
+			tmpCh, err := i.createStream(ctx, request, response, true)
+			if err != nil {
+				return
+			}
+			for v := range tmpCh {
+				if i.Verbose() && v.Type == instructor.ContentStream {
+					sb.WriteString(v.Content)
+				}
+				ch <- v
+			}
+		}()
 		resp, err := i.CreateMessagesStream(ctx, streamReq)
 		if err != nil {
 			return

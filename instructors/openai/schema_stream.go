@@ -76,13 +76,13 @@ func (i *Instructor) createStream(ctx context.Context, request openai.ChatComple
 	}
 	if thinking := i.ThinkingConfig(); thinking != nil {
 		if thinking.Enabled {
-			request.Thinking = &openai.Thinking {
-        Type: openai.ThinkingTypeEnabled,
-    }
+			request.Thinking = &openai.Thinking{
+				Type: openai.ThinkingTypeEnabled,
+			}
 		} else {
-			request.Thinking = &openai.Thinking {
-        Type:openai.ThinkingTypeDisabled,
-      }
+			request.Thinking = &openai.Thinking{
+				Type: openai.ThinkingTypeDisabled,
+			}
 		}
 		request.ChatTemplateKwargs = map[string]any{
 			"enable_thinking": thinking.Enabled,
@@ -105,49 +105,40 @@ func (i *Instructor) createStream(ctx context.Context, request openai.ChatComple
 		defer stream.Close()
 		defer close(ch)
 		bs := new(bytes.Buffer)
-		toolCallMap := make(map[int]instructor.ToolCall)
+		toolCallMap := make(map[int]openai.ToolCall)
 		if i.Verbose() && !toolRequest {
-			fmt.Fprintf(bs, "%s Response: \n", i.Provider())
 			defer func() {
+				fmt.Fprintf(bs, "%s Response: \n", i.Provider())
 				log.Println(bs.String())
 			}()
 		}
-    defer func() {
-      if len(toolCallMap) > 0 {
-        toolCalls := make([]openai.ToolCall, 0, len(toolCallMap))
-        for _, toolCall := range toolCallMap {
-          openaiToolCall := openai.ToolCall{
-            ID:   toolCall.ID,
-            Type: openai.ToolTypeFunction,
-            Function: openai.FunctionCall{
-              Name:      toolCall.Name,
-              Arguments: toolCall.Content,
-            },
-          }
-          toolCalls = append(toolCalls, openaiToolCall)
-        }
-        request.Messages = append(request.Messages, openai.ChatCompletionMessage{
-          Role:      openai.ChatMessageRoleAssistant, // 模型角色
-          ToolCalls: toolCalls,
-        })
-        for _, toolCall := range toolCalls {
-          if err := i.CallMCP(ctx, &toolCall, &request); err != nil && i.Verbose() {
-            log.Printf("%s MCP Error: %v\n", i.Provider(), err)
-          }
-        }
-        tmpCh, err := i.createStream(ctx, request, response, true)
-        if err != nil {
-          return
-        }
-        for v := range tmpCh {
-          if i.Verbose() && v.Type == instructor.ContentStream {
+		defer func() {
+			if len(toolCallMap) > 0 {
+				toolCalls := make([]openai.ToolCall, 0, len(toolCallMap))
+				for _, toolCall := range toolCallMap {
+					toolCalls = append(toolCalls, toolCall)
+				}
+				request.Messages = append(request.Messages, openai.ChatCompletionMessage{
+					Role:      openai.ChatMessageRoleAssistant, // 模型角色
+					ToolCalls: toolCalls,
+				})
+				for _, toolCall := range toolCalls {
+					if call := i.CallMCP(ctx, &toolCall, &request); call != nil {
+						ch <- instructor.StreamData{Type: instructor.ToolCallStream, ToolCall: call}
+					}
+				}
+				tmpCh, err := i.createStream(ctx, request, response, true)
+				if err != nil {
+					return
+				}
+				for v := range tmpCh {
+					if i.Verbose() && v.Type == instructor.ContentStream {
 						bs.WriteString(v.Content)
-          }
-          ch <- v
-        }
-        // ch <- instructor.StreamData{Type: instructor.ToolStream, ToolCall: toolCall}
-      }
-    }()
+					}
+					ch <- v
+				}
+			}
+		}()
 		for {
 			resp, err := stream.Recv()
 			if errors.Is(err, io.EOF) {
@@ -173,20 +164,24 @@ func (i *Instructor) createStream(ctx context.Context, request openai.ChatComple
 						}
 						toolCall, ok := toolCallMap[*v.Index]
 						if !ok {
-							toolCall = instructor.ToolCall{
-								ID:      v.ID,
-								Content: v.Function.Arguments,
+							toolCall = openai.ToolCall{
+								ID:   v.ID,
+								Type: openai.ToolTypeFunction,
+								Function: openai.FunctionCall{
+									Name:      v.Function.Name,
+									Arguments: v.Function.Arguments,
+								},
 							}
 						} else {
-							toolCall.Content += v.Function.Arguments
+							toolCall.Function.Arguments += v.Function.Arguments
 						}
 						if v.Function.Name != "" {
-							toolCall.Name = v.Function.Name
+							toolCall.Function.Name = v.Function.Name
 						}
 						toolCallMap[*v.Index] = toolCall
 					}
-				// } else if len(toolCallMap) > 0 && delta.Content == "" && delta.Role == "" && delta.FunctionCall == nil {
-				// 	break
+					// } else if len(toolCallMap) > 0 && delta.Content == "" && delta.Role == "" && delta.FunctionCall == nil {
+					// 	break
 				}
 				if text := resp.Choices[0].Delta.ReasoningContent; text != "" {
 					ch <- instructor.StreamData{Type: instructor.ThinkingStream, Content: text}

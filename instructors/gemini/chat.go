@@ -151,12 +151,6 @@ func (i *Instructor) completion(ctx context.Context, request Request, response *
 		ResponseMIMEType:  "application/json",
 		SystemInstruction: request.System,
 	}
-	if thinkingConfig := i.ThinkingConfig(); thinkingConfig != nil {
-		cfg.ThinkingConfig = &gemini.ThinkingConfig{
-			IncludeThoughts: thinkingConfig.Enabled,
-			ThinkingBudget:  internal.ToPtr(int32(thinkingConfig.Budget)),
-		}
-	}
 
 	enc, isJSON := i.Encoder().(*jsonenc.Encoder)
 	if isJSON {
@@ -172,14 +166,23 @@ func (i *Instructor) completion(ctx context.Context, request Request, response *
 		cfg.ResponseSchema = new(gemini.Schema)
 		convertSchema(schema.Schema, cfg.ResponseSchema)
 	}
+	return i.chat(ctx, cfg, request, response)
+}
 
+func (i *Instructor) chat(ctx context.Context, cfg gemini.GenerateContentConfig, request Request, response *gemini.GenerateContentResponse) (string, error) {
+	if thinkingConfig := i.ThinkingConfig(); thinkingConfig != nil {
+		cfg.ThinkingConfig = &gemini.ThinkingConfig{
+			IncludeThoughts: thinkingConfig.Enabled,
+			ThinkingBudget:  internal.ToPtr(int32(thinkingConfig.Budget)),
+		}
+	}
+	i.InjectMCP(ctx, &cfg)
 	if i.Verbose() {
 		cfgBytes, _ := json.MarshalIndent(cfg, "", "  ")
 		bs, _ := json.MarshalIndent(request, "", "  ")
 		log.Printf(`%s Request: %s
       Request Config: %s\n`, i.Provider(), string(bs), string(cfgBytes))
 	}
-
 	var (
 		resp *gemini.GenerateContentResponse
 		err  error
@@ -196,10 +199,7 @@ func (i *Instructor) completion(ctx context.Context, request Request, response *
 		resp, err = cs.SendMessage(ctx, parts...)
 	} else {
 		resp, err = i.Models.GenerateContent(ctx, request.Model, []*gemini.Content{
-			{
-				Parts: request.Parts,
-				Role:  "user",
-			},
+			gemini.NewContentFromParts(request.Parts, gemini.RoleUser),
 		}, &cfg)
 	}
 
@@ -209,17 +209,40 @@ func (i *Instructor) completion(ctx context.Context, request Request, response *
 	if response != nil {
 		*response = *resp
 	}
+	var (
+		toolCalls         []gemini.FunctionCall
+		functionCallParts []*gemini.Part
+		responseText      string
+	)
 	for _, cand := range resp.Candidates {
 		if cand.Content == nil {
 			continue
 		}
 		for _, part := range cand.Content.Parts {
+			if fcCall := part.FunctionCall; fcCall != nil {
+				toolCalls = append(toolCalls, *fcCall)
+				functionCallParts = append(functionCallParts, gemini.NewPartFromFunctionCall(fcCall.Name, fcCall.Args))
+			}
 			if text := part.Text; text != "" {
-				return text, nil
+				responseText = text
 			}
 		}
 	}
-	return "", nil
+	if len(toolCalls) > 0 {
+		request.History = append(request.History, gemini.NewContentFromParts(functionCallParts, gemini.RoleModel))
+		parts := make([]*gemini.Part, 0, len(toolCalls))
+		for _, toolCall := range toolCalls {
+			part, call := i.CallMCP(ctx, &toolCall)
+			if call != nil && i.Verbose() {
+				bs, _ := json.MarshalIndent(call, "", "  ")
+				log.Printf("%s ToolCall Result: %s\n", i.Provider(), string(bs))
+			}
+			parts = append(parts, part)
+		}
+		request.History = append(request.History, gemini.NewContentFromParts(parts, "function"))
+		return i.chat(ctx, cfg, request, response)
+	}
+	return responseText, nil
 }
 
 func (i *Instructor) EmptyResponseWithUsageSum(ret *gemini.GenerateContentResponse, usage *instructor.UsageSum) {

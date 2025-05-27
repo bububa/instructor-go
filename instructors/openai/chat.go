@@ -237,8 +237,9 @@ func (i *Instructor) chatCompletionWrapper(ctx context.Context, request openai.C
 		if len(toolCalls) > 0 {
 			request.Messages = append(request.Messages, resp.Choices[0].Message)
 			for _, toolCall := range toolCalls {
-				if err := i.CallMCP(ctx, &toolCall, &request); err != nil && i.Verbose() {
-					log.Printf("%s MCP Error: %v\n", i.Provider(), err)
+				if call := i.CallMCP(ctx, &toolCall, &request); call != nil && i.Verbose() {
+					bs, _ := json.MarshalIndent(call, "", "  ")
+					log.Printf("%s ToolCall Result: %s\n", i.Provider(), string(bs))
 				}
 			}
 			return i.chatCompletionWrapper(ctx, request, response)

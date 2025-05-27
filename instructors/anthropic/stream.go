@@ -33,5 +33,5 @@ func (i *Instructor) Stream(
 			}
 		}
 	}
-	return i.createStream(ctx, &req, response)
+	return i.createStream(ctx, req, response, false)
 }
