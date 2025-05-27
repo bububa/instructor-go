@@ -52,28 +52,7 @@ func (i *Instructor) chatToolCallStream(ctx context.Context, request Request, re
 		SystemInstruction: request.System,
 		Tools:             createTools(schema),
 	}
-	if thinkingConfig := i.ThinkingConfig(); thinkingConfig != nil {
-		cfg.ThinkingConfig = &gemini.ThinkingConfig{
-			IncludeThoughts: thinkingConfig.Enabled,
-			ThinkingBudget:  internal.ToPtr(int32(thinkingConfig.Budget)),
-		}
-	}
-
-	if i.Verbose() {
-		cfgBytes, _ := json.MarshalIndent(cfg, "", "  ")
-		bs, _ := json.MarshalIndent(request, "", "  ")
-		log.Printf(`%s Request: %s
-      Request Config: %s\n`, i.Provider(), string(bs), string(cfgBytes))
-	}
-
-	contents := make([]*gemini.Content, len(request.History)+1)
-	contents = append(contents, request.History...)
-	contents = append(contents, &gemini.Content{
-		Parts: request.Parts,
-		Role:  "user",
-	})
-	iter := i.Models.GenerateContentStream(ctx, request.Model, contents, &cfg)
-	return i.createStream(ctx, iter, response)
+	return i.stream(ctx, cfg, request, response)
 }
 
 func (i *Instructor) chatJSONStream(ctx context.Context, request Request, response *gemini.GenerateContentResponse, strict bool) (<-chan instructor.StreamData, error) {
@@ -83,12 +62,6 @@ func (i *Instructor) chatJSONStream(ctx context.Context, request Request, respon
 	cfg := gemini.GenerateContentConfig{
 		ResponseMIMEType:  "application/json",
 		SystemInstruction: request.System,
-	}
-	if thinkingConfig := i.ThinkingConfig(); thinkingConfig != nil {
-		cfg.ThinkingConfig = &gemini.ThinkingConfig{
-			IncludeThoughts: thinkingConfig.Enabled,
-			ThinkingBudget:  internal.ToPtr(int32(thinkingConfig.Budget)),
-		}
 	}
 
 	enc, isJSON := i.Encoder().(*jsonenc.Encoder)
@@ -103,6 +76,17 @@ func (i *Instructor) chatJSONStream(ctx context.Context, request Request, respon
 		schema := enc.Schema()
 		convertSchema(schema.Schema, cfg.ResponseSchema)
 	}
+	return i.stream(ctx, cfg, request, response)
+}
+
+func (i *Instructor) stream(ctx context.Context, cfg gemini.GenerateContentConfig, request Request, response *gemini.GenerateContentResponse) (<-chan instructor.StreamData, error) {
+	if thinkingConfig := i.ThinkingConfig(); thinkingConfig != nil {
+		cfg.ThinkingConfig = &gemini.ThinkingConfig{
+			IncludeThoughts: thinkingConfig.Enabled,
+			ThinkingBudget:  internal.ToPtr(int32(thinkingConfig.Budget)),
+		}
+	}
+	i.InjectMCP(ctx, &cfg)
 
 	if i.Verbose() {
 		cfgBytes, _ := json.MarshalIndent(cfg, "", "  ")
@@ -112,15 +96,36 @@ func (i *Instructor) chatJSONStream(ctx context.Context, request Request, respon
 	}
 	contents := make([]*gemini.Content, len(request.History)+1)
 	contents = append(contents, request.History...)
-	contents = append(contents, &gemini.Content{
-		Parts: request.Parts,
-		Role:  "user",
-	})
+	contents = append(contents, gemini.NewContentFromParts(request.Parts, gemini.RoleUser))
 	iter := i.Models.GenerateContentStream(ctx, request.Model, contents, &cfg)
-	return i.createStream(ctx, iter, response)
+	outCh := make(chan instructor.StreamData)
+	go func() {
+		defer close(outCh)
+		var toolRequest Request
+		defer func() {
+			if len(toolRequest.History) > 0 {
+				request.History = append(request.History, toolRequest.History...)
+				tmpCh, err := i.stream(ctx, cfg, request, response)
+				if err != nil {
+					return
+				}
+				for v := range tmpCh {
+					outCh <- v
+				}
+			}
+		}()
+		ch, err := i.createStream(ctx, iter, response, &toolRequest)
+		if err != nil {
+			return
+		}
+		for part := range ch {
+			outCh <- part
+		}
+	}()
+	return outCh, nil
 }
 
-func (i *Instructor) createStream(_ context.Context, iter iter.Seq2[*gemini.GenerateContentResponse, error], response *gemini.GenerateContentResponse) (<-chan instructor.StreamData, error) {
+func (i *Instructor) createStream(ctx context.Context, iter iter.Seq2[*gemini.GenerateContentResponse, error], response *gemini.GenerateContentResponse, toolRequest *Request) (<-chan instructor.StreamData, error) {
 	ch := make(chan instructor.StreamData)
 
 	go func() {
@@ -132,7 +137,33 @@ func (i *Instructor) createStream(_ context.Context, iter iter.Seq2[*gemini.Gene
 				log.Println(sb.String())
 			}()
 		}
-		var toolCall *instructor.ToolCall
+		toolCallMap := make(map[int32]gemini.FunctionCall)
+		toolCallInput := make(map[int32]string)
+		defer func() {
+			toolCalls := make([]gemini.FunctionCall, 0, len(toolCallMap))
+			parts := make([]*gemini.Part, 0, len(toolCallMap))
+			for idx, toolCall := range toolCallMap {
+				if input, ok := toolCallInput[idx]; ok {
+					if err := json.Unmarshal([]byte(input), &toolCall.Args); err != nil {
+						toolCalls = append(toolCalls, toolCall)
+						parts = append(parts, gemini.NewPartFromFunctionCall(toolCall.Name, toolCall.Args))
+					}
+				}
+			}
+			if len(toolCalls) == 0 {
+				return
+			}
+			toolRequest.History = append(toolRequest.History, gemini.NewContentFromParts(parts, gemini.RoleModel))
+			contents := make([]*gemini.Part, 0, len(toolCalls))
+			for _, toolCall := range toolCalls {
+				part, call := i.CallMCP(ctx, &toolCall)
+				if call != nil {
+					ch <- instructor.StreamData{Type: instructor.ToolCallStream, ToolCall: call}
+				}
+				contents = append(contents, part)
+			}
+			toolRequest.History = append(toolRequest.History, gemini.NewContentFromParts(contents, "function"))
+		}()
 		for resp, err := range iter {
 			if err == iterator.Done {
 				return
@@ -147,14 +178,15 @@ func (i *Instructor) createStream(_ context.Context, iter iter.Seq2[*gemini.Gene
 				}
 				for _, part := range cand.Content.Parts {
 					if fcCall := part.FunctionCall; fcCall != nil {
-						if toolCall == nil {
-							bs, _ := json.Marshal(fcCall.Args)
-							toolCall = &instructor.ToolCall{
-								ID:      fcCall.ID,
-								Name:    fcCall.Name,
-								Content: string(bs),
+						if _, ok := toolCallMap[cand.Index]; !ok {
+							toolCallMap[cand.Index] = gemini.FunctionCall{
+								ID:   fcCall.ID,
+								Name: fcCall.Name,
 							}
-							// ch <- instructor.StreamData{Type: instructor.ToolStream, ToolCall: toolCall}
+						}
+						if fcCall.Args != nil {
+							bs, _ := json.Marshal(fcCall.Args)
+							toolCallInput[cand.Index] += string(bs)
 						}
 					}
 					if part.Thought {

@@ -25,7 +25,7 @@ func main() {
 	tools := make([]instructor.MCPTool, 0, len(toolListResult.Tools))
 	for _, v := range toolListResult.Tools {
 		tools = append(tools, instructor.MCPTool{
-			ServerName: "firecrawl",
+			ServerName: "mock",
 			Client:     mcpClt,
 			Tool:       &v,
 		})

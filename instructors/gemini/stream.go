@@ -2,8 +2,6 @@ package gemini
 
 import (
 	"context"
-	"encoding/json"
-	"log"
 
 	gemini "google.golang.org/genai"
 
@@ -20,18 +18,6 @@ func (i *Instructor) Stream(
 ) (<-chan instructor.StreamData, error) {
 	cfg := gemini.GenerateContentConfig{
 		SystemInstruction: request.System,
-	}
-	if thinkingConfig := i.ThinkingConfig(); thinkingConfig != nil {
-		cfg.ThinkingConfig = &gemini.ThinkingConfig{
-			IncludeThoughts: true,
-		}
-	}
-
-	if i.Verbose() {
-		cfgBytes, _ := json.MarshalIndent(cfg, "", "  ")
-		bs, _ := json.MarshalIndent(request, "", "  ")
-		log.Printf(`%s Request: %s
-      Request Config: %s\n`, i.Provider(), string(bs), string(cfgBytes))
 	}
 
 	req := *request
@@ -52,14 +38,5 @@ func (i *Instructor) Stream(
 			cfg.ResponseMIMEType = "text/plain"
 		}
 	}
-
-	contents := make([]*gemini.Content, len(request.History)+1)
-	contents = append(contents, request.History...)
-	contents = append(contents, &gemini.Content{
-		Parts: request.Parts,
-		Role:  "user",
-	})
-	iter := i.Models.GenerateContentStream(ctx, request.Model, contents, &cfg)
-
-	return i.createStream(ctx, iter, response)
+	return i.stream(ctx, cfg, req, response)
 }

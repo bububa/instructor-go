@@ -97,17 +97,46 @@ func (i *Instructor) completion(ctx context.Context, request anthropic.MessagesR
 			request.System = fmt.Sprintf("%s\n\n#OUTPUT SCHEMA\n%s", request.System, bs)
 		}
 	}
+	return i.chatCompletionWrapper(ctx, request, response)
+}
 
+func (i *Instructor) chatCompletionWrapper(ctx context.Context, request anthropic.MessagesRequest, response *anthropic.MessagesResponse) (string, error) {
+	i.InjectMCP(ctx, &request)
 	if i.Verbose() {
 		bs, _ := json.MarshalIndent(request, "", "  ")
 		log.Printf("%s Request: %s\n", i.Provider(), string(bs))
 	}
-
 	resp, err := i.CreateMessages(ctx, request)
 	if err != nil {
 		return "", err
 	}
-
+	if i.Verbose() {
+		bs, _ := json.MarshalIndent(resp, "", "  ")
+		log.Printf("%s Response: %s\n", i.Provider(), string(bs))
+	}
+	var messageContents []anthropic.MessageContent
+	for _, c := range resp.Content {
+		if c.Type == anthropic.MessagesContentTypeToolUse {
+			messageContent, call := i.CallMCP(ctx, c.MessageContentToolUse)
+			if i.Verbose() && call != nil {
+				bs, _ := json.MarshalIndent(call, "", "  ")
+				log.Printf("%s ToolCall Result: %s\n", i.Provider(), string(bs))
+			}
+			messageContents = append(messageContents, messageContent)
+		}
+	}
+	if len(messageContents) > 0 {
+		request.Messages = append(request.Messages,
+			anthropic.Message{
+				Role:    anthropic.RoleAssistant,
+				Content: resp.Content,
+			},
+			anthropic.Message{
+				Role:    anthropic.RoleUser,
+				Content: messageContents,
+			})
+		return i.chatCompletionWrapper(ctx, request, response)
+	}
 	text := resp.Content[0].Text
 	if response != nil {
 		*response = resp

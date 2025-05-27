@@ -73,10 +73,11 @@ type StreamDataType int
 const (
 	ContentStream StreamDataType = iota
 	ThinkingStream
-	ToolStream
+	ToolCallStream
 )
 
 type StreamData struct {
 	Type     StreamDataType `json:"type,omitempty"`
 	Content  string         `json:"content,omitempty"`
+	ToolCall *ToolCall      `json:"tool_call,omitempty"`
 }

@@ -7,17 +7,45 @@ import (
 	"log"
 	"os"
 
+	mcpClient "github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/mcp"
 	openai "github.com/sashabaranov/go-openai"
 
 	"github.com/bububa/instructor-go"
-	"github.com/bububa/instructor-go/examples/mcp/mock"
 	"github.com/bububa/instructor-go/instructors"
 )
 
 func main() {
 	ctx := context.Background()
-	mcpClt := new(mock.MockMCPClient)
+	envs := []string{fmt.Sprintf("FIRECRAWL_API_KEY=%s", os.Getenv("FIRECRAWL_API_KEY"))}
+	mcpClt, err := mcpClient.NewStdioMCPClient("npx", envs, "-y", "firecrawl-mcp")
+	if err != nil {
+		log.Fatalln(err)
+		return
+	}
+	// if err := mcpClt.Start(ctx); err != nil {
+	// 	log.Fatalf("Failed to start client: %v", err)
+	// }
+	// Initialize the client
+	fmt.Println("Initializing client...")
+	initRequest := mcp.InitializeRequest{}
+	initRequest.Params.ProtocolVersion = mcp.LATEST_PROTOCOL_VERSION
+	initRequest.Params.ClientInfo = mcp.Implementation{
+		Name:    "MCP-Go Client for instructor-go",
+		Version: "1.0.0",
+	}
+	initRequest.Params.Capabilities = mcp.ClientCapabilities{}
+
+	serverInfo, err := mcpClt.Initialize(ctx, initRequest)
+	if err != nil {
+		log.Fatalf("Failed to initialize: %v", err)
+	}
+
+	// Display server information
+	fmt.Printf("Connected to server: %s (version %s)\n",
+		serverInfo.ServerInfo.Name,
+		serverInfo.ServerInfo.Version)
+	fmt.Printf("Server capabilities: %+v\n", serverInfo.Capabilities)
 	toolListResult, err := mcpClt.ListTools(ctx, mcp.ListToolsRequest{})
 	if err != nil {
 		log.Fatalln(err)
@@ -26,7 +54,7 @@ func main() {
 	tools := make([]instructor.MCPTool, 0, len(toolListResult.Tools))
 	for _, v := range toolListResult.Tools {
 		tools = append(tools, instructor.MCPTool{
-			ServerName: "mock",
+			ServerName: serverInfo.ServerInfo.Name,
 			Client:     mcpClt,
 			Tool:       &v,
 		})
@@ -49,14 +77,14 @@ func main() {
 	ch, err := client.Stream(ctx, &openai.ChatCompletionRequest{
 		Model: os.Getenv("OPENAI_MODEL"),
 		Messages: []openai.ChatCompletionMessage{
-			{
-				Role: openai.ChatMessageRoleSystem,
-				Content: `你是一个很有帮助的助手。如果用户提问关于天气的问题，调用 ‘get_weather_data’ 函数;
-     请以友好的语气回答问题。`,
-			},
+			// {
+			// 	Role: openai.ChatMessageRoleSystem,
+			// 	Content: `你是一个很有帮助的助手。如果用户提问关于天气的问题，调用 ‘get_weather_data’ 函数;
+			//   请以友好的语气回答问题。`,
+			// },
 			{
 				Role:    openai.ChatMessageRoleUser,
-				Content: "上海现在天气怎么样？",
+				Content: "搜索目前比较受欢迎的扫地机",
 			},
 		},
 		Stream: true,
