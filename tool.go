@@ -1,8 +1,7 @@
 package instructor
 
 import (
-	"context"
-
+	mcpClient "github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/mcp"
 )
 
@@ -12,11 +11,7 @@ type ToolCall struct {
 }
 
 type MCPTool struct {
-	Client     MCPClient
+	Client     mcpClient.MCPClient
 	ServerName string
 	Tool       *mcp.Tool
-}
-
-type MCPClient interface {
-	CallTool(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error)
 }
