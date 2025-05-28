@@ -10,7 +10,13 @@ import (
 )
 
 // MockMCPClient 模拟 MCP 客户端
-type MockMCPClient mcpClient.Client
+type MockMCPClient struct {
+	mcpClient.Client
+}
+
+func (c *MockMCPClient) Close() error {
+	return nil
+}
 
 func (c *MockMCPClient) ListTools(ctx context.Context, req mcp.ListToolsRequest) (*mcp.ListToolsResult, error) {
 	return &mcp.ListToolsResult{

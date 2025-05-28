@@ -227,6 +227,9 @@ func (i *Instructor) chatCompletionWrapper(ctx context.Context, request openai.C
 		bs, _ := json.MarshalIndent(resp, "", "  ")
 		log.Printf("%s Response: %s\n", i.Provider(), string(bs))
 	}
+	if response != nil {
+		*response = resp
+	}
 	if len(resp.Choices[0].Message.ToolCalls) > 0 {
 		toolCalls := make([]openai.ToolCall, 0, len(resp.Choices[0].Message.ToolCalls))
 		for _, toolCall := range resp.Choices[0].Message.ToolCalls {
@@ -242,13 +245,21 @@ func (i *Instructor) chatCompletionWrapper(ctx context.Context, request openai.C
 					log.Printf("%s ToolCall Result: %s\n", i.Provider(), string(bs))
 				}
 			}
-			return i.chatCompletionWrapper(ctx, request, response)
+			var usage openai.Usage
+			if response != nil {
+				*response = resp
+				usage = response.Usage
+			}
+			text, err := i.chatCompletionWrapper(ctx, request, response)
+			if response != nil {
+				response.Usage.PromptTokens += usage.PromptTokens
+				response.Usage.CompletionTokens += usage.CompletionTokens
+				response.Usage.TotalTokens += usage.TotalTokens
+			}
+			return text, err
 		}
 	}
 	text := resp.Choices[0].Message.Content
-	if response != nil {
-		*response = resp
-	}
 	return text, nil
 }
 

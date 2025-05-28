@@ -114,6 +114,21 @@ func (i *Instructor) stream(ctx context.Context, cfg gemini.GenerateContentConfi
 				}
 			}
 		}()
+		var usage gemini.GenerateContentResponseUsageMetadata
+		if response != nil && response.UsageMetadata != nil {
+			usage = *response.UsageMetadata
+		}
+		defer func() {
+			if response != nil {
+				if response.UsageMetadata == nil {
+					response.UsageMetadata = &usage
+				} else {
+					response.UsageMetadata.PromptTokenCount += usage.PromptTokenCount
+					response.UsageMetadata.CandidatesTokenCount += usage.CandidatesTokenCount
+					response.UsageMetadata.TotalTokenCount += usage.TotalTokenCount
+				}
+			}
+		}()
 		ch, err := i.createStream(ctx, iter, response, &toolRequest)
 		if err != nil {
 			return
@@ -171,7 +186,9 @@ func (i *Instructor) createStream(ctx context.Context, iter iter.Seq2[*gemini.Ge
 			if err != nil {
 				return
 			}
-			response.UsageMetadata = resp.UsageMetadata
+			if response != nil {
+				response.UsageMetadata = resp.UsageMetadata
+			}
 			for _, cand := range resp.Candidates {
 				if cand.Content == nil {
 					continue
