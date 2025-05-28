@@ -127,7 +127,16 @@ func (i *Instructor) createStream(ctx context.Context, request openai.ChatComple
 						ch <- instructor.StreamData{Type: instructor.ToolCallStream, ToolCall: call}
 					}
 				}
+				var usage openai.Usage
+				if response != nil {
+					usage = response.Usage
+				}
 				tmpCh, err := i.createStream(ctx, request, response, true)
+				if response != nil {
+					response.Usage.PromptTokens += usage.PromptTokens
+					response.Usage.CompletionTokens += usage.CompletionTokens
+					response.Usage.TotalTokens += usage.TotalTokens
+				}
 				if err != nil {
 					return
 				}

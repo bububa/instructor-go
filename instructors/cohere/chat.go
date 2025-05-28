@@ -50,6 +50,9 @@ func (i *Instructor) chatToolCall(ctx context.Context, request cohere.ChatReques
 	}
 
 	resp, err := i.Client.Chat(ctx, &request)
+	if response != nil {
+		*response = *resp
+	}
 	if err != nil {
 		return "", err
 	}
@@ -60,9 +63,6 @@ func (i *Instructor) chatToolCall(ctx context.Context, request cohere.ChatReques
 			return "", err
 		}
 		// TODO: handle more than 1 tool use
-		if response != nil {
-			*response = *resp
-		}
 		return string(toolInput), nil
 
 	}
@@ -78,17 +78,22 @@ func (i *Instructor) completion(ctx context.Context, request cohere.ChatRequest,
 			request.Preamble = internal.ToPtr(fmt.Sprintf("%s\n\n#OUTPUT SCHEMA\n%s", *system, string(bs)))
 		}
 	}
+	return i.chat(ctx, request, response)
+}
 
+func (i *Instructor) chat(ctx context.Context, request cohere.ChatRequest, response *cohere.NonStreamedChatResponse) (string, error) {
 	if i.Verbose() {
 		bs, _ := json.MarshalIndent(request, "", "  ")
 		log.Printf("%s Request: %s\n", i.Provider(), string(bs))
 	}
 
 	resp, err := i.Client.Chat(ctx, &request)
+	if response != nil {
+		*response = *resp
+	}
 	if err != nil {
 		return "", err
 	}
-	*response = *resp
 	return resp.Text, nil
 }
 

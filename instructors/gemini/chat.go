@@ -206,8 +206,12 @@ func (i *Instructor) chat(ctx context.Context, cfg gemini.GenerateContentConfig,
 	if err != nil {
 		return "", err
 	}
+	var usage gemini.GenerateContentResponseUsageMetadata
 	if response != nil {
 		*response = *resp
+		if response.UsageMetadata != nil {
+			usage = *response.UsageMetadata
+		}
 	}
 	var (
 		toolCalls         []gemini.FunctionCall
@@ -240,7 +244,19 @@ func (i *Instructor) chat(ctx context.Context, cfg gemini.GenerateContentConfig,
 			parts = append(parts, part)
 		}
 		request.History = append(request.History, gemini.NewContentFromParts(parts, "function"))
-		return i.chat(ctx, cfg, request, response)
+		responseText, err = i.chat(ctx, cfg, request, response)
+		if response != nil {
+			if response.UsageMetadata == nil {
+				response.UsageMetadata = &usage
+			} else {
+				response.UsageMetadata.PromptTokenCount += usage.PromptTokenCount
+				response.UsageMetadata.CandidatesTokenCount += usage.CandidatesTokenCount
+				response.UsageMetadata.TotalTokenCount += usage.TotalTokenCount
+			}
+		}
+		if err != nil {
+			return "", err
+		}
 	}
 	return responseText, nil
 }

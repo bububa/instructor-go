@@ -114,6 +114,9 @@ func (i *Instructor) chatCompletionWrapper(ctx context.Context, request anthropi
 		bs, _ := json.MarshalIndent(resp, "", "  ")
 		log.Printf("%s Response: %s\n", i.Provider(), string(bs))
 	}
+	if response != nil {
+		*response = resp
+	}
 	var messageContents []anthropic.MessageContent
 	for _, c := range resp.Content {
 		if c.Type == anthropic.MessagesContentTypeToolUse {
@@ -126,6 +129,10 @@ func (i *Instructor) chatCompletionWrapper(ctx context.Context, request anthropi
 		}
 	}
 	if len(messageContents) > 0 {
+		var usage anthropic.MessagesUsage
+		if response != nil {
+			usage = response.Usage
+		}
 		request.Messages = append(request.Messages,
 			anthropic.Message{
 				Role:    anthropic.RoleAssistant,
@@ -135,12 +142,14 @@ func (i *Instructor) chatCompletionWrapper(ctx context.Context, request anthropi
 				Role:    anthropic.RoleUser,
 				Content: messageContents,
 			})
-		return i.chatCompletionWrapper(ctx, request, response)
+		text, err := i.chatCompletionWrapper(ctx, request, response)
+		if response != nil {
+			response.Usage.InputTokens += usage.InputTokens
+			response.Usage.OutputTokens += usage.OutputTokens
+		}
+		return text, err
 	}
 	text := resp.Content[0].Text
-	if response != nil {
-		*response = resp
-	}
 	return *text, nil
 }
 

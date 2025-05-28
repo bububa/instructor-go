@@ -117,6 +117,12 @@ func (i *Instructor) createStream(ctx context.Context, request anthropic.Message
 				}
 			}
 		},
+		OnMessageDelta: func(data anthropic.MessagesEventMessageDeltaData) {
+			if response != nil {
+				response.Usage.InputTokens += data.Usage.InputTokens
+				response.Usage.OutputTokens += data.Usage.OutputTokens
+			}
+		},
 	}
 	if thinkingConfig := i.ThinkingConfig(); thinkingConfig != nil {
 		request.Thinking = &anthropic.Thinking{
@@ -136,6 +142,12 @@ func (i *Instructor) createStream(ctx context.Context, request anthropic.Message
 				log.Println(sb.String())
 			}()
 		}
+		var usage anthropic.MessagesUsage
+		defer func() {
+			if response != nil {
+				usage = response.Usage
+			}
+		}()
 		defer func() {
 			toolCalls := make([]anthropic.MessageContentToolUse, 0, len(toolCallMap))
 			contents := make([]anthropic.MessageContent, 0, len(toolCallMap))
@@ -177,13 +189,17 @@ func (i *Instructor) createStream(ctx context.Context, request anthropic.Message
 				}
 				ch <- v
 			}
+			if response != nil {
+				response.Usage.InputTokens += usage.InputTokens
+				response.Usage.OutputTokens += usage.OutputTokens
+			}
 		}()
 		resp, err := i.CreateMessagesStream(ctx, streamReq)
-		if err != nil {
-			return
-		}
 		if response != nil {
 			*response = resp
+		}
+		if err != nil {
+			return
 		}
 	}()
 
