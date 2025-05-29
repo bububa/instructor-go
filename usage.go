@@ -1,7 +1,7 @@
 package instructor
 
 type UsageSum struct {
-	InputTokens  int
-	OutputTokens int
-	TotalTokens  int
+	InputTokens  int64
+	OutputTokens int64
+	TotalTokens  int64
 }

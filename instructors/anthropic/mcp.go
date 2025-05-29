@@ -12,7 +12,13 @@ import (
 )
 
 func (i *Instructor) InjectMCP(ctx context.Context, req *anthropic.MessagesRequest) {
-	req.Tools = make([]anthropic.ToolDefinition, 0, len(i.MCPTools()))
+  l := len(i.MCPTools())
+  if l == 0 {
+    return
+  }
+  if req.Tools == nil {
+	 req.Tools = make([]anthropic.ToolDefinition, 0, l)
+  }
 	for _, v := range i.MCPTools() {
 		tool := anthropic.ToolDefinition{
 			Name:        fmt.Sprintf("%s_%s", v.ServerName, v.Tool.GetName()),
@@ -54,7 +60,7 @@ func (i *Instructor) CallMCP(ctx context.Context, toolUse *anthropic.MessageCont
 			return anthropic.NewToolResultMessageContent(toolUse.ID, toolContent, isError), ret
 		}
 	}
-	toolRet := mcp.NewToolResultError("no mcp tool found")
+	toolRet := mcp.NewToolResultError("invalid tool name")
 	if bs, err := json.Marshal(toolRet); err == nil {
 		toolContent = string(bs)
 	}

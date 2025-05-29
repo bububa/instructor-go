@@ -38,5 +38,5 @@ func (i *Instructor) Stream(
 			cfg.ResponseMIMEType = "text/plain"
 		}
 	}
-	return i.stream(ctx, cfg, req, response)
+	return i.stream(ctx, cfg, req, response, false)
 }

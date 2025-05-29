@@ -7,7 +7,8 @@ import (
 	"os"
 
 	"github.com/mark3labs/mcp-go/mcp"
-	openai "github.com/sashabaranov/go-openai"
+	"github.com/openai/openai-go"
+	"github.com/openai/openai-go/option"
 
 	"github.com/bububa/instructor-go"
 	"github.com/bububa/instructor-go/examples/mcp/mock"
@@ -31,10 +32,9 @@ func main() {
 		})
 	}
 
-	cfg := openai.DefaultConfig(os.Getenv("OPENAI_API_KEY"))
-	cfg.BaseURL = os.Getenv("OPENAI_BASE_URL")
+  clt := openai.NewClient(option.WithAPIKey(os.Getenv("OPENAI_API_KEY")), option.WithBaseURL(os.Getenv("OPENAI_BASE_URL")))
 	client := instructors.FromOpenAI(
-		openai.NewClientWithConfig(cfg),
+  &clt,
 		instructor.WithMode(instructor.ModeJSON),
 		instructor.WithVerbose(),
 		instructor.WithExtraBody(map[string]any{
@@ -47,20 +47,13 @@ func main() {
 		Weather string `json:"weather,omitempty"`
 	}
 	var result Result
-	err = client.Chat(ctx, &openai.ChatCompletionRequest{
+	err = client.Chat(ctx, &openai.ChatCompletionNewParams{
 		Model: os.Getenv("OPENAI_MODEL"),
-		Messages: []openai.ChatCompletionMessage{
-			{
-				Role: openai.ChatMessageRoleSystem,
-				Content: `你是一个很有帮助的助手。如果用户提问关于天气的问题，调用 ‘get_weather_data’ 函数;
-     请以友好的语气回答问题。`,
-			},
-			{
-				Role:    openai.ChatMessageRoleUser,
-				Content: "上海现在天气怎么样？",
-			},
+		Messages: []openai.ChatCompletionMessageParamUnion{
+				openai.SystemMessage(`你是一个很有帮助的助手。如果用户提问关于天气的问题，调用 ‘get_weather_data’ 函数;
+     请以友好的语气回答问题。`),
+				openai.UserMessage("上海现在天气怎么样？"),
 		},
-		Stream: false,
 	},
 		&result,
 		nil,

@@ -7,27 +7,34 @@ import (
 
 	"github.com/bububa/instructor-go"
 	"github.com/mark3labs/mcp-go/mcp"
-	openai "github.com/sashabaranov/go-openai"
+	"github.com/openai/openai-go"
 )
 
-func (i *Instructor) InjectMCP(ctx context.Context, req *openai.ChatCompletionRequest) {
-	req.Tools = make([]openai.Tool, 0, len(i.MCPTools()))
+func (i *Instructor) InjectMCP(ctx context.Context, req *openai.ChatCompletionNewParams) {
+  l := len(i.MCPTools())
+  if l == 0 {
+    return
+  }
+  if req.Tools == nil {
+	  req.Tools = make([]openai.ChatCompletionToolParam, 0, l)
+  }
 	for _, v := range i.MCPTools() {
-		f := openai.FunctionDefinition{
-			Name:        fmt.Sprintf("%s_%s", v.ServerName, v.Tool.GetName()),
-			Description: v.Tool.Description,
-			Parameters:  v.Tool.InputSchema,
-		}
-		tool := openai.Tool{
-			Type:     openai.ToolTypeFunction,
-			Function: &f,
+		tool := openai.ChatCompletionToolParam{
+			Function: openai.FunctionDefinitionParam{
+				Name:        fmt.Sprintf("%s_%s", v.ServerName, v.Tool.GetName()),
+				Description: openai.String(v.Tool.Description),
+				Parameters: openai.FunctionParameters{
+					"type":       v.Tool.InputSchema.Type,
+					"required":   v.Tool.InputSchema.Required,
+					"properties": v.Tool.InputSchema.Properties,
+				},
+			},
 		}
 		req.Tools = append(req.Tools, tool)
 	}
-	req.ToolChoice = "auto"
 }
 
-func (i *Instructor) CallMCP(ctx context.Context, toolUse *openai.ToolCall, req *openai.ChatCompletionRequest) *instructor.ToolCall {
+func (i *Instructor) CallMCP(ctx context.Context, toolUse *openai.ChatCompletionMessageToolCall, req *openai.ChatCompletionNewParams) *instructor.ToolCall {
 	var toolContent string
 	for _, v := range i.MCPTools() {
 		if name := fmt.Sprintf("%s_%s", v.ServerName, v.Tool.GetName()); name == toolUse.Function.Name {
@@ -50,24 +57,14 @@ func (i *Instructor) CallMCP(ctx context.Context, toolUse *openai.ToolCall, req 
 					toolContent = string(bs)
 				}
 			}
-			req.Messages = append(req.Messages, openai.ChatCompletionMessage{
-				Role:       openai.ChatMessageRoleTool,
-				Name:       toolUse.Function.Name,
-				ToolCallID: toolUse.ID,
-				Content:    toolContent,
-			})
+			req.Messages = append(req.Messages, openai.ToolMessage(toolContent, toolUse.ID))
 			return ret
 		}
 	}
-	toolRet := mcp.NewToolResultError("no mcp tool found")
+	toolRet := mcp.NewToolResultError("invalid tool name")
 	if bs, err := json.Marshal(toolRet); err == nil {
 		toolContent = string(bs)
 	}
-	req.Messages = append(req.Messages, openai.ChatCompletionMessage{
-		Role:       openai.ChatMessageRoleTool,
-		Name:       toolUse.Function.Name,
-		ToolCallID: toolUse.ID,
-		Content:    toolContent,
-	})
+	req.Messages = append(req.Messages, openai.ToolMessage(toolContent, toolUse.ID))
 	return nil
 }

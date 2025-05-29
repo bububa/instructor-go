@@ -3,8 +3,10 @@ package openai
 import (
 	"context"
 	"fmt"
+  "encoding/json"
 
-	openai "github.com/sashabaranov/go-openai"
+	"github.com/openai/openai-go"
+	"github.com/invopop/jsonschema"
 
 	"github.com/bububa/instructor-go"
 	"github.com/bububa/instructor-go/encoding"
@@ -13,9 +15,9 @@ import (
 
 func (i *Instructor) Stream(
 	ctx context.Context,
-	request *openai.ChatCompletionRequest,
+	request *openai.ChatCompletionNewParams,
 	responseType any,
-	response *openai.ChatCompletionResponse,
+	response *openai.ChatCompletion,
 ) (<-chan instructor.StreamData, error) {
 	req := *request
 	if responseType != nil {
@@ -27,17 +29,50 @@ func (i *Instructor) Stream(
 			}
 		}
 		for idx, msg := range req.Messages {
-			if msg.Role == "system" {
+			if msg.OfSystem != nil {
 				bs := i.Encoder().Context()
 				if bs != nil {
-					req.Messages[idx].Content = fmt.Sprintf("%s\n\n#OUTPUT SCHEMA\n%s", msg.Content, string(bs))
+					msg.OfSystem.Content.OfString = openai.String(fmt.Sprintf("%s\n\n#OUTPUT SCHEMA\n%s", msg.GetContent(), string(bs)))
+					req.Messages[idx] = msg
 				}
 			}
 		}
-		if _, ok := i.Encoder().(*jsonenc.Encoder); ok {
-			req.ResponseFormat = &openai.ChatCompletionResponseFormat{Type: openai.ChatCompletionResponseFormatTypeJSONObject}
+		if enc, ok := i.Encoder().(*jsonenc.Encoder); ok {
+      if i.Mode() == instructor.ModeJSONStrict {
+        schema := enc.Schema()
+        structName := schema.NameFromRef()
+          schemaWrapper := ResponseFormatSchemaWrapper{
+            Type:        "object",
+            Required:    []string{structName},
+            Definitions: &schema.Definitions,
+            Properties: &jsonschema.Definitions{
+              structName: schema.Definitions[structName],
+            },
+            AdditionalProperties: false,
+          }
+
+          schemaJSON, _ := json.Marshal(schemaWrapper)
+          schemaRaw := json.RawMessage(schemaJSON)
+
+          request.ResponseFormat = openai.ChatCompletionNewParamsResponseFormatUnion{
+            OfJSONSchema: &openai.ResponseFormatJSONSchemaParam{
+              JSONSchema: openai.ResponseFormatJSONSchemaJSONSchemaParam{
+                Name:        structName,
+                Description: openai.String(schema.Description),
+                Schema:      schemaRaw,
+                Strict:      openai.Bool(true),
+              },
+            },
+          }
+      } else {
+        req.ResponseFormat = openai.ChatCompletionNewParamsResponseFormatUnion{
+          OfJSONObject: new(openai.ResponseFormatJSONObjectParam),
+        }
+      }
 		} else {
-			req.ResponseFormat = &openai.ChatCompletionResponseFormat{Type: openai.ChatCompletionResponseFormatTypeText}
+			request.ResponseFormat = openai.ChatCompletionNewParamsResponseFormatUnion{
+				OfText: new(openai.ResponseFormatTextParam),
+			}
 		}
 	}
 	return i.createStream(ctx, req, response, false)

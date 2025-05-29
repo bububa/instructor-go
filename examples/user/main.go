@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	openai "github.com/sashabaranov/go-openai"
+	"github.com/openai/openai-go"
+	"github.com/openai/openai-go/option"
 
 	"github.com/bububa/instructor-go"
 	"github.com/bububa/instructor-go/instructors"
@@ -19,25 +20,24 @@ type Person struct {
 func main() {
 	ctx := context.Background()
 
+	clt := openai.NewClient(option.WithAPIKey(os.Getenv("OPENAI_API_KEY")), option.WithBaseURL(os.Getenv("OPENAI_API_BASE_URL")))
 	client := instructors.FromOpenAI(
-		openai.NewClient(os.Getenv("OPENAI_API_KEY")),
+    &clt,
 		instructor.WithMode(instructor.ModeJSON),
 		instructor.WithMaxRetries(3),
+    instructor.WithVerbose(),
 	)
 
 	var (
 		person Person
-		resp   = new(openai.ChatCompletionResponse)
+		resp   = new(openai.ChatCompletion)
 	)
 	err := client.Chat(
 		ctx,
-		&openai.ChatCompletionRequest{
-			Model: openai.GPT4o,
-			Messages: []openai.ChatCompletionMessage{
-				{
-					Role:    openai.ChatMessageRoleUser,
-					Content: "Extract Robby is 22 years old.",
-				},
+		&openai.ChatCompletionNewParams{
+			Model: os.Getenv("OPENAI_MODEL"),
+			Messages: []openai.ChatCompletionMessageParamUnion{
+					openai.UserMessage( "Extract Robby is 22 years old."),
 			},
 		},
 		&person,

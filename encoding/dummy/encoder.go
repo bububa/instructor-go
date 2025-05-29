@@ -18,6 +18,14 @@ func NewEncoder() *Encoder {
 	return new(Encoder)
 }
 
+func (e *Encoder) Instance() any {
+  return nil
+}
+
+func (e *Encoder) Elem() any {
+  return nil
+}
+
 func (e *Encoder) Marshal(v any) ([]byte, error) {
 	if s, ok := v.(Stringer); ok {
 		return []byte(s.String()), nil

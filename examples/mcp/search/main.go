@@ -2,14 +2,15 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"os"
+  "encoding/json"
 
 	mcpClient "github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/mcp"
-	openai "github.com/sashabaranov/go-openai"
+	"github.com/openai/openai-go"
+	"github.com/openai/openai-go/option"
 
 	"github.com/bububa/instructor-go"
 	"github.com/bububa/instructor-go/instructors"
@@ -60,34 +61,25 @@ func main() {
 		})
 	}
 
-	cfg := openai.DefaultConfig(os.Getenv("OPENAI_API_KEY"))
-	cfg.BaseURL = os.Getenv("OPENAI_BASE_URL")
+  clt := openai.NewClient(option.WithAPIKey(os.Getenv("OPENAI_API_KEY")), option.WithBaseURL(os.Getenv("OPENAI_BASE_URL")))
 	client := instructors.FromOpenAI(
-		openai.NewClientWithConfig(cfg),
+    &clt,
 		instructor.WithMode(instructor.ModePlainText),
 		instructor.WithVerbose(),
-		instructor.WithoutThinking(),
+		instructor.WithThinking(2048),
 		instructor.WithExtraBody(map[string]any{
-			"enable_thinking": false,
+			"enable_thinking": true,
 		}),
 		instructor.WithMCPTools(tools...),
 	)
 
 	var result string
-	ch, err := client.Stream(ctx, &openai.ChatCompletionRequest{
+	ch, err := client.Stream(ctx, &openai.ChatCompletionNewParams{
 		Model: os.Getenv("OPENAI_MODEL"),
-		Messages: []openai.ChatCompletionMessage{
-			// {
-			// 	Role: openai.ChatMessageRoleSystem,
-			// 	Content: `你是一个很有帮助的助手。如果用户提问关于天气的问题，调用 ‘get_weather_data’ 函数;
-			//   请以友好的语气回答问题。`,
-			// },
-			{
-				Role:    openai.ChatMessageRoleUser,
-				Content: "搜索目前比较受欢迎的扫地机",
-			},
+		Messages: []openai.ChatCompletionMessageParamUnion{
+      openai.SystemMessage("你是一个很有帮助的助手。如果需要搜索请使用工具。"),
+				openai.UserMessage("搜索目前比较受欢迎的扫地机"),
 		},
-		Stream: true,
 	},
 		&result,
 		nil,
@@ -98,12 +90,14 @@ func main() {
 	var thinkingStart bool
 	for part := range ch {
 		switch part.Type {
+		case instructor.ErrorStream:
+      fmt.Println("ERROR", part.Err)
 		case instructor.ThinkingStream:
 			if !thinkingStart {
 				fmt.Println("thinking...")
 			}
 			thinkingStart = true
-			fmt.Print(part.Content)
+      fmt.Print(part.Content)
 		case instructor.ContentStream:
 			if thinkingStart {
 				fmt.Println()

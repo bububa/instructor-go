@@ -10,6 +10,14 @@ func NewStreamEncoder() *StreamEncoder {
 	return new(StreamEncoder)
 }
 
+func (e *StreamEncoder) Instance() any {
+  return nil
+}
+
+func (e *StreamEncoder) Elem() any {
+  return nil
+}
+
 func (e *StreamEncoder) EnableValidate() {}
 
 func (e *StreamEncoder) Context() []byte {

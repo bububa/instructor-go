@@ -145,10 +145,10 @@ func (i *Instructor) CountUsageFromResponse(response *cohere.NonStreamedChatResp
 		return
 	}
 	if v := response.Meta.Tokens.InputTokens; v != nil {
-		usage.InputTokens += int(*v)
+		usage.InputTokens += int64(*v)
 	}
 	if v := response.Meta.Tokens.OutputTokens; v != nil {
-		usage.OutputTokens += int(*v)
+		usage.OutputTokens += int64(*v)
 	}
 }
 

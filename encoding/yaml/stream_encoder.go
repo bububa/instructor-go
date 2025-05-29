@@ -38,6 +38,16 @@ func (e *StreamEncoder) Validate(req any) error {
 	return validate.Struct(req)
 }
 
+func (e *StreamEncoder) Instance() any {
+	tValue := reflect.New(e.reqType)
+	return tValue.Interface()
+}
+
+func (e *StreamEncoder) Elem() any {
+	tValue := reflect.New(e.reqType)
+	return tValue.Elem()
+}
+
 func (e *StreamEncoder) Marshal(req any) ([]byte, error) {
 	return yaml.Marshal(req)
 }

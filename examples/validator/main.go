@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	openai "github.com/sashabaranov/go-openai"
+	"github.com/openai/openai-go"
+	"github.com/openai/openai-go/option"
 
 	"github.com/bububa/instructor-go"
 	"github.com/bububa/instructor-go/instructors"
@@ -44,8 +45,9 @@ func (a Address) String() string {
 func main() {
 	ctx := context.Background()
 
+  clt := openai.NewClient(option.WithAPIKey(os.Getenv("OPENAI_API_KEY")))
 	client := instructors.FromOpenAI(
-		openai.NewClient(os.Getenv("OPENAI_API_KEY")),
+    &clt,
 		instructor.WithMode(instructor.ModeJSON),
 		instructor.WithMaxRetries(3),
 		instructor.WithValidation(),
@@ -54,16 +56,13 @@ func main() {
 	var user User
 	err := client.Chat(
 		ctx,
-		&openai.ChatCompletionRequest{
-			Model: openai.GPT4o,
-			Messages: []openai.ChatCompletionMessage{
-				{
-					Role: openai.ChatMessageRoleUser,
-					Content: "Meet Jane Doe: a 30-year-old adventurer who can be reached at janed@example.com. " +
+		&openai.ChatCompletionNewParams{
+			Model: openai.ChatModelGPT4oMini,
+			Messages: []openai.ChatCompletionMessageParamUnion{
+					openai.UserMessage( "Meet Jane Doe: a 30-year-old adventurer who can be reached at janed@example.com. " +
 						"Jane loves the vibrant hue of #FF5733. She resides in Metropolis at 456 Oak St, on the wonderful planet Earth. " +
 						"To chat with her, dial (555) 555-1234. Jane also spends her weekends at her cottage located at 789 Pine St, " +
-						"in Smallville, on the same planet. You can contact her there at (555) 555-5678.",
-				},
+						"in Smallville, on the same planet. You can contact her there at (555) 555-5678."),
 			},
 		},
 		&user,

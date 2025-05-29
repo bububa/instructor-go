@@ -12,7 +12,8 @@ import (
 
 	"github.com/bububa/instructor-go"
 	"github.com/bububa/instructor-go/instructors"
-	openai "github.com/sashabaranov/go-openai"
+	"github.com/openai/openai-go"
+	"github.com/openai/openai-go/option"
 )
 
 type PriorityEnum string
@@ -72,10 +73,16 @@ func (ai ActionItems) String() string {
 func main() {
 	ctx := context.Background()
 
+	clt := openai.NewClient(option.WithAPIKey(os.Getenv("OPENAI_API_KEY")), option.WithBaseURL(os.Getenv("OPENAI_API_BASE_URL")))
 	client := instructors.FromOpenAI(
-		openai.NewClient(os.Getenv("OPENAI_API_KEY")),
-		instructor.WithMode(instructor.ModeJSONStrict),
+		&clt,
+		instructor.WithMode(instructor.ModeJSON),
 		instructor.WithMaxRetries(0),
+    instructor.WithVerbose(),
+    instructor.WithoutThinking(),
+    instructor.WithExtraBody(map[string]any{
+      "enable_thinking": false,
+    }),
 	)
 
 	transcript := `
@@ -106,22 +113,16 @@ Alice: Sounds like a plan. Let's get these tasks modeled out and get started.
 
 	var (
 		actionItems ActionItems
-		response    = new(openai.ChatCompletionResponse)
+		response    = new(openai.ChatCompletion)
 	)
 	err := client.Chat(
 		ctx,
-		&openai.ChatCompletionRequest{
-			Model:       openai.GPT4oMini20240718,
-			Temperature: .2,
-			Messages: []openai.ChatCompletionMessage{
-				{
-					Role:    openai.ChatMessageRoleSystem,
-					Content: "The following is a transcript of a meeting between a manager and their team. The manager is assigning tasks to their team members and creating action items for them to complete.",
-				},
-				{
-					Role:    openai.ChatMessageRoleUser,
-					Content: fmt.Sprintf("Create the action items for the following transcript: %s", transcript),
-				},
+		&openai.ChatCompletionNewParams{
+			Model: os.Getenv("OPENAI_MODEL"),
+			Temperature: openai.Opt(.2),
+			Messages: []openai.ChatCompletionMessageParamUnion{
+					openai.SystemMessage("The following is a transcript of a meeting between a manager and their team. The manager is assigning tasks to their team members and creating action items for them to complete."),
+					openai.UserMessage(fmt.Sprintf("Create the action items for the following transcript: %s", transcript)),
 			},
 		},
 		&actionItems,

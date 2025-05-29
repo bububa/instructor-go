@@ -9,6 +9,7 @@ import (
 	"log"
 
 	anthropic "github.com/liushuangls/go-anthropic/v2"
+	"github.com/mark3labs/mcp-go/mcp"
 
 	"github.com/bububa/instructor-go"
 	jsonenc "github.com/bububa/instructor-go/encoding/json"
@@ -79,6 +80,9 @@ func (i *Instructor) createStream(ctx context.Context, request anthropic.Message
 		} else {
 			request.Thinking.Type = anthropic.ThinkingTypeDisabled
 		}
+	}
+	if !toolRequest {
+		i.InjectMCP(ctx, &request)
 	}
 	ch := make(chan instructor.StreamData)
 	sb := new(bytes.Buffer)
@@ -172,6 +176,23 @@ func (i *Instructor) createStream(ctx context.Context, request anthropic.Message
 				content, call := i.CallMCP(ctx, &toolCall)
 				if call != nil {
 					ch <- instructor.StreamData{Type: instructor.ToolCallStream, ToolCall: call}
+				} else {
+					var shouldReturn bool
+					for _, tool := range request.Tools {
+						if tool.Name == toolCall.Name {
+							callReq := new(mcp.CallToolRequest)
+							callReq.Params.Name = toolCall.Name
+							callReq.Params.Arguments = toolCall.Input
+							call := instructor.ToolCall{
+								Request: callReq,
+							}
+							ch <- instructor.StreamData{Type: instructor.ToolCallStream, ToolCall: &call}
+							shouldReturn = true
+						}
+					}
+					if shouldReturn {
+						return
+					}
 				}
 				messageContents = append(messageContents, content)
 			}
@@ -181,6 +202,7 @@ func (i *Instructor) createStream(ctx context.Context, request anthropic.Message
 			})
 			tmpCh, err := i.createStream(ctx, request, response, true)
 			if err != nil {
+				ch <- instructor.StreamData{Type: instructor.ErrorStream, Err: err}
 				return
 			}
 			for v := range tmpCh {
@@ -199,7 +221,7 @@ func (i *Instructor) createStream(ctx context.Context, request anthropic.Message
 			*response = resp
 		}
 		if err != nil {
-			return
+			ch <- instructor.StreamData{Type: instructor.ErrorStream, Err: err}
 		}
 	}()
 
