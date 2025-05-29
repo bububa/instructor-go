@@ -9,7 +9,7 @@ import (
 
 	"github.com/bububa/ljson"
 	"github.com/invopop/jsonschema"
-	openai "github.com/sashabaranov/go-openai"
+	"github.com/openai/openai-go"
 
 	"github.com/bububa/instructor-go"
 	jsonenc "github.com/bububa/instructor-go/encoding/json"
@@ -26,69 +26,73 @@ type ResponseFormatSchemaWrapper struct {
 
 func (i *Instructor) Chat(
 	ctx context.Context,
-	request *openai.ChatCompletionRequest,
+	request *openai.ChatCompletionNewParams,
 	responseType any,
-	response *openai.ChatCompletionResponse,
+	response *openai.ChatCompletion,
 ) error {
 	return chat.Handler(i, ctx, request, responseType, response)
 }
 
-func (i *Instructor) Handler(ctx context.Context, request *openai.ChatCompletionRequest, response *openai.ChatCompletionResponse) (string, error) {
+func (i *Instructor) Handler(ctx context.Context, request *openai.ChatCompletionNewParams, response *openai.ChatCompletion) (string, error) {
 	req := *request
-	if req.ExtraBody == nil {
-		if extraBody := i.ExtraBody(); extraBody != nil {
-			req.ExtraBody = extraBody
-		}
-	}
+	extraFields := req.ExtraFields()
+  if extraBody := i.ExtraBody(); extraBody != nil {
+    if extraFields == nil {
+      extraFields = map[string]any{
+        "extra_body": extraBody,
+      }
+    } else {
+      extraFields["extra_body"] = extraBody
+    }
+  }
 	if thinking := i.ThinkingConfig(); thinking != nil {
+		if extraFields == nil {
+			extraFields = make(map[string]any, 2)
+		}
 		if thinking.Enabled {
-			req.Thinking = &openai.Thinking{
-				Type: openai.ThinkingTypeEnabled,
+			extraFields["thinking"] = map[string]string{
+				"type": "enabled",
 			}
 		} else {
-			req.Thinking = &openai.Thinking{
-				Type: openai.ThinkingTypeDisabled,
+			extraFields["thinking"] = map[string]string{
+				"type": "disabled",
 			}
 		}
-		req.ChatTemplateKwargs = map[string]any{
+		extraFields["chat_template_kwargs"] = map[string]any{
 			"enable_thinking": thinking.Enabled,
 			"thinking_budget": thinking.Budget,
 		}
 	}
+	req.SetExtraFields(extraFields)
 	switch i.Mode() {
-	case instructor.ModeToolCall:
-		return i.chatToolCall(ctx, req, response, false)
-	case instructor.ModeToolCallStrict:
-		return i.chatToolCall(ctx, req, response, true)
-	case instructor.ModeJSON:
-		return i.chatJSON(ctx, req, response, false)
-	case instructor.ModeJSONStrict:
-		return i.chatJSON(ctx, req, response, true)
+	case instructor.ModeToolCall, instructor.ModeToolCallStrict:
+		return i.chatToolCall(ctx, req, response)
+	case instructor.ModeJSON, instructor.ModeJSONSchema, instructor.ModeJSONStrict:
+		return i.chatJSON(ctx, req, response)
 	default:
 		return i.chatCompletion(ctx, req, response)
 	}
 }
 
-func (i *Instructor) chatToolCall(ctx context.Context, request openai.ChatCompletionRequest, response *openai.ChatCompletionResponse, strict bool) (string, error) {
+func (i *Instructor) chatToolCall(ctx context.Context, request openai.ChatCompletionNewParams, response *openai.ChatCompletion) (string, error) {
 	var schema *instructor.Schema
 	if enc, ok := i.Encoder().(*jsonenc.Encoder); ok {
 		schema = enc.Schema()
 	} else {
 		return "", errors.New("encoder must be JSON Encoder")
 	}
-	request.Stream = false
-	request.Tools = createOpenAITools(schema, strict)
+	request.Tools = createOpenAITools(schema, i.Mode() == instructor.ModeToolCallStrict)
 	if i.Verbose() {
-		bs, _ := json.MarshalIndent(request, "", "  ")
+		bs, _ := request.MarshalJSON()
 		log.Printf("%s Request: %s\n", i.Provider(), string(bs))
 	}
 
-	resp, err := i.CreateChatCompletion(ctx, request)
+	resp, err := i.Client.Chat.Completions.New(ctx, request)
 	if err != nil {
 		return "", err
 	}
 
-	var toolCalls []openai.ToolCall
+	var toolCalls []openai.ChatCompletionMessageToolCall
 	for _, choice := range resp.Choices {
 		toolCalls = choice.Message.ToolCalls
 
@@ -100,13 +104,13 @@ func (i *Instructor) chatToolCall(ctx context.Context, request openai.ChatComple
 	numTools := len(toolCalls)
 
 	if numTools < 1 {
-		i.EmptyResponseWithResponseUsage(response, &resp)
+		i.EmptyResponseWithResponseUsage(response, resp)
 		return "", errors.New("received no tool calls from model, expected at least 1")
 	}
 
 	if numTools == 1 {
 		if response != nil {
-			*response = resp
+			*response = *resp
 		}
 		return toolCalls[0].Function.Arguments, nil
 	}
@@ -118,7 +122,7 @@ func (i *Instructor) chatToolCall(ctx context.Context, request openai.ChatComple
 	for idx, toolCall := range toolCalls {
 		var jsonObj map[string]any
 		if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &jsonObj); err != nil {
-			i.EmptyResponseWithResponseUsage(response, &resp)
+			i.EmptyResponseWithResponseUsage(response, resp)
 			return "", err
 		}
 		jsonArray[idx] = jsonObj
@@ -126,17 +130,17 @@ func (i *Instructor) chatToolCall(ctx context.Context, request openai.ChatComple
 
 	resultJSON, err := json.Marshal(jsonArray)
 	if err != nil {
-		i.EmptyResponseWithResponseUsage(response, &resp)
+		i.EmptyResponseWithResponseUsage(response, resp)
 		return "", err
 	}
 
 	if response != nil {
-		*response = resp
+		*response = *resp
 	}
 	return string(resultJSON), nil
 }
 
-func (i *Instructor) chatJSON(ctx context.Context, request openai.ChatCompletionRequest, response *openai.ChatCompletionResponse, strict bool) (string, error) {
+func (i *Instructor) chatJSON(ctx context.Context, request openai.ChatCompletionNewParams, response *openai.ChatCompletion) (string, error) {
 	var schema *instructor.Schema
 	if enc, ok := i.Encoder().(*jsonenc.Encoder); ok {
 		schema = enc.Schema()
@@ -145,17 +149,17 @@ func (i *Instructor) chatJSON(ctx context.Context, request openai.ChatCompletion
 	}
 	structName := schema.NameFromRef()
 
-	request.Stream = false
 	for idx, msg := range request.Messages {
-		if msg.Role == "system" {
+    if system := msg.OfSystem; system != nil {
 			bs := i.Encoder().Context()
 			if bs != nil {
-				request.Messages[idx].Content = fmt.Sprintf("%s\n\n#OUTPUT SCHEMA\n%s", msg.Content, string(bs))
+				system.Content.OfString = openai.String(fmt.Sprintf("%s\n\n#OUTPUT SCHEMA\n%s", system.Content.OfString.String(), string(bs)))
+				request.Messages[idx] = msg
 			}
 		}
 	}
 
-	if strict {
+	if i.Mode() == instructor.ModeJSONSchema || i.Mode() == instructor.ModeJSONStrict {
 		schemaWrapper := ResponseFormatSchemaWrapper{
 			Type:        "object",
 			Required:    []string{structName},
@@ -169,18 +173,19 @@ func (i *Instructor) chatJSON(ctx context.Context, request openai.ChatCompletion
 		schemaJSON, _ := json.Marshal(schemaWrapper)
 		schemaRaw := json.RawMessage(schemaJSON)
 
-		request.ResponseFormat = &openai.ChatCompletionResponseFormat{
-			Type: openai.ChatCompletionResponseFormatTypeJSONSchema,
-			JSONSchema: &openai.ChatCompletionResponseFormatJSONSchema{
-				Name:        structName,
-				Description: schema.Description,
-				Schema:      schemaRaw,
-				Strict:      true,
+		request.ResponseFormat = openai.ChatCompletionNewParamsResponseFormatUnion{
+			OfJSONSchema: &openai.ResponseFormatJSONSchemaParam{
+				JSONSchema: openai.ResponseFormatJSONSchemaJSONSchemaParam{
+					Name:        structName,
+					Description: openai.String(schema.Description),
+					Schema:      schemaRaw,
+					Strict:      openai.Bool(i.Mode() == instructor.ModeJSONStrict),
+				},
 			},
 		}
 	} else {
-		request.ResponseFormat = &openai.ChatCompletionResponseFormat{
-			Type: openai.ChatCompletionResponseFormatTypeJSONObject,
+		request.ResponseFormat = openai.ChatCompletionNewParamsResponseFormatUnion{
+			OfJSONObject: new(openai.ResponseFormatJSONObjectParam),
 		}
 	}
 
@@ -189,7 +194,7 @@ func (i *Instructor) chatJSON(ctx context.Context, request openai.ChatCompletion
 		return "", err
 	}
 
-	if strict {
+	if i.Mode() == instructor.ModeJSONStrict || i.Mode() == instructor.ModeJSONSchema {
 		resMap := make(map[string]any)
 		_ = ljson.Unmarshal([]byte(text), &resMap)
 
@@ -199,13 +204,13 @@ func (i *Instructor) chatJSON(ctx context.Context, request openai.ChatCompletion
 	return text, nil
 }
 
-func (i *Instructor) chatCompletion(ctx context.Context, request openai.ChatCompletionRequest, response *openai.ChatCompletionResponse) (string, error) {
-	request.Stream = false
+func (i *Instructor) chatCompletion(ctx context.Context, request openai.ChatCompletionNewParams, response *openai.ChatCompletion) (string, error) {
 	for idx, msg := range request.Messages {
-		if msg.Role == "system" {
+    if system := msg.OfSystem; system != nil {
 			bs := i.Encoder().Context()
 			if bs != nil {
-				request.Messages[idx].Content = fmt.Sprintf("%s\n\n#OUTPUT SCHEMA\n%s", msg.Content, string(bs))
+				system.Content.OfString = openai.String(fmt.Sprintf("%s\n\n#OUTPUT SCHEMA\n%s", system.Content.OfString.String(), string(bs)))
+				request.Messages[idx] = msg
 			}
 		}
 	}
@@ -213,62 +218,54 @@ func (i *Instructor) chatCompletion(ctx context.Context, request openai.ChatComp
 	return i.chatCompletionWrapper(ctx, request, response)
 }
 
-func (i *Instructor) chatCompletionWrapper(ctx context.Context, request openai.ChatCompletionRequest, response *openai.ChatCompletionResponse) (string, error) {
+func (i *Instructor) chatCompletionWrapper(ctx context.Context, request openai.ChatCompletionNewParams, response *openai.ChatCompletion) (string, error) {
 	i.InjectMCP(ctx, &request)
 	if i.Verbose() {
-		bs, _ := json.MarshalIndent(request, "", "  ")
+		bs, _ := request.MarshalJSON()
 		log.Printf("%s Request: %s\n", i.Provider(), string(bs))
 	}
-	resp, err := i.CreateChatCompletion(ctx, request)
+	resp, err := i.Client.Chat.Completions.New(ctx, request)
 	if err != nil {
 		return "", err
 	}
 	if i.Verbose() {
-		bs, _ := json.MarshalIndent(resp, "", "  ")
-		log.Printf("%s Response: %s\n", i.Provider(), string(bs))
+		log.Printf("%s Response: %s\n", i.Provider(), resp.RawJSON())
 	}
 	if response != nil {
-		*response = resp
+		*response = *resp
 	}
-	if len(resp.Choices[0].Message.ToolCalls) > 0 {
-		toolCalls := make([]openai.ToolCall, 0, len(resp.Choices[0].Message.ToolCalls))
-		for _, toolCall := range resp.Choices[0].Message.ToolCalls {
-			if toolCall.Type == openai.ToolTypeFunction {
-				toolCalls = append(toolCalls, toolCall)
+	toolCalls := resp.Choices[0].Message.ToolCalls
+	if len(toolCalls) > 0 {
+		request.Messages = append(request.Messages, resp.Choices[0].Message.ToParam())
+		for _, toolCall := range toolCalls {
+			if call := i.CallMCP(ctx, &toolCall, &request); call != nil && i.Verbose() {
+				bs, _ := json.MarshalIndent(call, "", "  ")
+				log.Printf("%s ToolCall Result: %s\n", i.Provider(), string(bs))
 			}
 		}
-		if len(toolCalls) > 0 {
-			request.Messages = append(request.Messages, resp.Choices[0].Message)
-			for _, toolCall := range toolCalls {
-				if call := i.CallMCP(ctx, &toolCall, &request); call != nil && i.Verbose() {
-					bs, _ := json.MarshalIndent(call, "", "  ")
-					log.Printf("%s ToolCall Result: %s\n", i.Provider(), string(bs))
-				}
-			}
-			var usage openai.Usage
-			if response != nil {
-				*response = resp
-				usage = response.Usage
-			}
-			text, err := i.chatCompletionWrapper(ctx, request, response)
-			if response != nil {
-				response.Usage.PromptTokens += usage.PromptTokens
-				response.Usage.CompletionTokens += usage.CompletionTokens
-				response.Usage.TotalTokens += usage.TotalTokens
-			}
-			return text, err
+		var usage openai.CompletionUsage
+		if response != nil {
+			*response = *resp
+			usage = response.Usage
 		}
+		text, err := i.chatCompletionWrapper(ctx, request, response)
+		if response != nil {
+			response.Usage.PromptTokens += usage.PromptTokens
+			response.Usage.CompletionTokens += usage.CompletionTokens
+			response.Usage.TotalTokens += usage.TotalTokens
+		}
+		return text, err
 	}
 	text := resp.Choices[0].Message.Content
 	return text, nil
 }
 
-func (i *Instructor) EmptyResponseWithUsageSum(ret *openai.ChatCompletionResponse, usage *instructor.UsageSum) {
+func (i *Instructor) EmptyResponseWithUsageSum(ret *openai.ChatCompletion, usage *instructor.UsageSum) {
 	if ret == nil || usage == nil {
 		return
 	}
-	*ret = openai.ChatCompletionResponse{
-		Usage: openai.Usage{
+	*ret = openai.ChatCompletion{
+		Usage: openai.CompletionUsage{
 			PromptTokens:     usage.InputTokens,
 			CompletionTokens: usage.OutputTokens,
 			TotalTokens:      usage.TotalTokens,
@@ -276,21 +273,21 @@ func (i *Instructor) EmptyResponseWithUsageSum(ret *openai.ChatCompletionRespons
 	}
 }
 
-func (i *Instructor) EmptyResponseWithResponseUsage(ret *openai.ChatCompletionResponse, response *openai.ChatCompletionResponse) {
+func (i *Instructor) EmptyResponseWithResponseUsage(ret *openai.ChatCompletion, response *openai.ChatCompletion) {
 	if ret == nil {
 		return
 	}
 	if response == nil {
-		*ret = openai.ChatCompletionResponse{}
+		*ret = openai.ChatCompletion{}
 		return
 	}
 
-	*ret = openai.ChatCompletionResponse{
+	*ret = openai.ChatCompletion{
 		Usage: response.Usage,
 	}
 }
 
-func (i *Instructor) SetUsageSumToResponse(response *openai.ChatCompletionResponse, usage *instructor.UsageSum) {
+func (i *Instructor) SetUsageSumToResponse(response *openai.ChatCompletion, usage *instructor.UsageSum) {
 	if response == nil || usage == nil {
 		return
 	}
@@ -299,7 +296,7 @@ func (i *Instructor) SetUsageSumToResponse(response *openai.ChatCompletionRespon
 	response.Usage.TotalTokens = usage.TotalTokens
 }
 
-func (i *Instructor) CountUsageFromResponse(response *openai.ChatCompletionResponse, usage *instructor.UsageSum) {
+func (i *Instructor) CountUsageFromResponse(response *openai.ChatCompletion, usage *instructor.UsageSum) {
 	if response == nil || usage == nil {
 		return
 	}
@@ -308,18 +305,21 @@ func (i *Instructor) CountUsageFromResponse(response *openai.ChatCompletionRespo
 	usage.TotalTokens += response.Usage.TotalTokens
 }
 
-func createOpenAITools(schema *instructor.Schema, strict bool) []openai.Tool {
-	tools := make([]openai.Tool, 0, len(schema.Functions))
+func createOpenAITools(schema *instructor.Schema, strict bool) []openai.ChatCompletionToolParam {
+	tools := make([]openai.ChatCompletionToolParam, 0, len(schema.Functions))
 	for _, function := range schema.Functions {
-		f := openai.FunctionDefinition{
+		f := openai.FunctionDefinitionParam{
 			Name:        function.Name,
-			Description: function.Description,
-			Parameters:  function.Parameters,
-			Strict:      strict,
+			Description: openai.String(function.Description),
+			Parameters: openai.FunctionParameters{
+				"type":       function.Parameters.Type,
+				"required":   function.Parameters.Required,
+				"properties": function.Parameters.Properties,
+			},
+			Strict: openai.Bool(strict),
 		}
-		t := openai.Tool{
-			Type:     "function",
-			Function: &f,
+		t := openai.ChatCompletionToolParam{
+			Function: f,
 		}
 		tools = append(tools, t)
 	}

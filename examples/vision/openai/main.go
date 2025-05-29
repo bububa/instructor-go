@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	openai "github.com/sashabaranov/go-openai"
+	"github.com/openai/openai-go"
+	"github.com/openai/openai-go/option"
 
 	"github.com/bububa/instructor-go"
 	"github.com/bububa/instructor-go/instructors"
@@ -32,8 +33,9 @@ func (bc *BookCatalog) PrintCatalog() {
 func main() {
 	ctx := context.Background()
 
+  clt := openai.NewClient(option.WithAPIKey(os.Getenv("OPENAI_API_KEY")))
 	client := instructors.FromOpenAI(
-		openai.NewClient(os.Getenv("OPENAI_API_KEY")),
+    &clt,
 		instructor.WithMode(instructor.ModeJSON),
 		instructor.WithMaxRetries(3),
 	)
@@ -41,24 +43,15 @@ func main() {
 	url := "https://raw.githubusercontent.com/bububa/instructor-go/main/examples/vision/openai/books.png"
 
 	var bookCatalog BookCatalog
-	err := client.Chat(ctx, &openai.ChatCompletionRequest{
-		Model: openai.GPT4o,
-		Messages: []openai.ChatCompletionMessage{
-			{
-				Role: openai.ChatMessageRoleUser,
-				MultiContent: []openai.ChatMessagePart{
-					{
-						Type: openai.ChatMessagePartTypeText,
-						Text: "Extract book catelog from the image",
-					},
-					{
-						Type: openai.ChatMessagePartTypeImageURL,
-						ImageURL: &openai.ChatMessageImageURL{
-							URL: url,
-						},
-					},
-				},
-			},
+	err := client.Chat(ctx, &openai.ChatCompletionNewParams{
+		Model: openai.ChatModelGPT4oMini,
+		Messages: []openai.ChatCompletionMessageParamUnion{
+      openai.UserMessage([]openai.ChatCompletionContentPartUnionParam{
+        openai.TextContentPart("Extract book catelog from the image"),
+        openai.ImageContentPart(openai.ChatCompletionContentPartImageImageURLParam{
+          URL: url,
+        }),
+      }),
 		},
 	},
 		&bookCatalog,

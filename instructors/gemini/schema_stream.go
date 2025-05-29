@@ -184,6 +184,7 @@ func (i *Instructor) createStream(ctx context.Context, iter iter.Seq2[*gemini.Ge
 				return
 			}
 			if err != nil {
+			  ch <- instructor.StreamData{Type: instructor.ErrorStream, Err: err}
 				return
 			}
 			if response != nil {

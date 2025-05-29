@@ -159,8 +159,8 @@ func (i *Instructor) EmptyResponseWithUsageSum(ret *anthropic.MessagesResponse, 
 	}
 	*ret = anthropic.MessagesResponse{
 		Usage: anthropic.MessagesUsage{
-			InputTokens:  usage.InputTokens,
-			OutputTokens: usage.OutputTokens,
+			InputTokens:  int(usage.InputTokens),
+			OutputTokens: int(usage.OutputTokens),
 		},
 	}
 }
@@ -182,14 +182,14 @@ func (i *Instructor) SetUsageSumToResponse(response *anthropic.MessagesResponse,
 	if response == nil || usage == nil {
 		return
 	}
-	response.Usage.InputTokens = usage.InputTokens
-	response.Usage.OutputTokens = usage.OutputTokens
+	response.Usage.InputTokens = int(usage.InputTokens)
+	response.Usage.OutputTokens = int(usage.OutputTokens)
 }
 
 func (i *Instructor) CountUsageFromResponse(response *anthropic.MessagesResponse, usage *instructor.UsageSum) {
 	if response == nil || usage == nil {
 		return
 	}
-	usage.InputTokens += response.Usage.InputTokens
-	usage.OutputTokens += response.Usage.OutputTokens
+	usage.InputTokens += int64(response.Usage.InputTokens)
+	usage.OutputTokens += int64(response.Usage.OutputTokens)
 }

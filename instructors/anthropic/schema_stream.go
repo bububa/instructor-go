@@ -181,6 +181,7 @@ func (i *Instructor) createStream(ctx context.Context, request anthropic.Message
 			})
 			tmpCh, err := i.createStream(ctx, request, response, true)
 			if err != nil {
+				ch <- instructor.StreamData{Type: instructor.ErrorStream, Err: err}
 				return
 			}
 			for v := range tmpCh {
@@ -199,7 +200,7 @@ func (i *Instructor) createStream(ctx context.Context, request anthropic.Message
 			*response = resp
 		}
 		if err != nil {
-			return
+			ch <- instructor.StreamData{Type: instructor.ErrorStream, Err: err}
 		}
 	}()
 

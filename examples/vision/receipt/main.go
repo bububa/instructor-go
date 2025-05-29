@@ -6,7 +6,8 @@ import (
 	"math"
 	"os"
 
-	openai "github.com/sashabaranov/go-openai"
+	"github.com/openai/openai-go"
+	"github.com/openai/openai-go/option"
 
 	"github.com/bububa/instructor-go"
 	"github.com/bububa/instructor-go/instructors"
@@ -50,28 +51,19 @@ func (r *Receipt) Validate() error {
 	return nil
 }
 
-func extract(ctx context.Context, client instructor.ChatInstructor[openai.ChatCompletionRequest, openai.ChatCompletionResponse], url string) (*Receipt, error) {
+func extract(ctx context.Context, client instructor.ChatInstructor[openai.ChatCompletionNewParams, openai.ChatCompletion], url string) (*Receipt, error) {
 	var receipt Receipt
 	err := client.Chat(
 		ctx,
-		&openai.ChatCompletionRequest{
-			Model: openai.GPT4o,
-			Messages: []openai.ChatCompletionMessage{
-				{
-					Role:    openai.ChatMessageRoleSystem,
-					Content: `Analyze the image and return the items (include tax and coupons as their own items) in the receipt and the total amount.`,
-				},
-				{
-					Role: openai.ChatMessageRoleUser,
-					MultiContent: []openai.ChatMessagePart{
-						{
-							Type: openai.ChatMessagePartTypeImageURL,
-							ImageURL: &openai.ChatMessageImageURL{
-								URL: url,
-							},
-						},
-					},
-				},
+		&openai.ChatCompletionNewParams{
+			Model: openai.ChatModelGPT4oMini,
+			Messages: []openai.ChatCompletionMessageParamUnion{
+					openai.SystemMessage(`Analyze the image and return the items (include tax and coupons as their own items) in the receipt and the total amount.`),
+        openai.UserMessage([]openai.ChatCompletionContentPartUnionParam{
+          openai.ImageContentPart(openai.ChatCompletionContentPartImageImageURLParam{
+            URL: url,
+          }),
+        }),
 			},
 		},
 		&receipt,
@@ -91,8 +83,9 @@ func extract(ctx context.Context, client instructor.ChatInstructor[openai.ChatCo
 func main() {
 	ctx := context.Background()
 
+  clt := openai.NewClient(option.WithAPIKey(os.Getenv("OPENAI_API_KEY")), option.WithBaseURL(os.Getenv("OPENAI_BASE_URL")))
 	client := instructors.FromOpenAI(
-		openai.NewClient(os.Getenv("OPENAI_API_KEY")),
+    &clt,
 		instructor.WithMode(instructor.ModeJSON),
 		instructor.WithMaxRetries(3),
 	)

@@ -304,9 +304,9 @@ func (i *Instructor) CountUsageFromResponse(response *gemini.GenerateContentResp
 	if response == nil || response.UsageMetadata == nil || usage == nil {
 		return
 	}
-	usage.InputTokens += int(response.UsageMetadata.PromptTokenCount)
-	usage.OutputTokens += int(response.UsageMetadata.CandidatesTokenCount)
-	usage.TotalTokens += int(response.UsageMetadata.TotalTokenCount)
+	usage.InputTokens += int64(response.UsageMetadata.PromptTokenCount)
+	usage.OutputTokens += int64(response.UsageMetadata.CandidatesTokenCount)
+	usage.TotalTokens += int64(response.UsageMetadata.TotalTokenCount)
 }
 
 func convertSchema(src *jsonschema.Schema, dist *gemini.Schema) {

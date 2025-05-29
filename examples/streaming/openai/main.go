@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	openai "github.com/sashabaranov/go-openai"
+	"github.com/openai/openai-go"
+	"github.com/openai/openai-go/option"
 
 	"github.com/bububa/instructor-go"
 	"github.com/bububa/instructor-go/instructors"
@@ -36,10 +37,9 @@ Recommendation [
 func main() {
 	ctx := context.Background()
 
-	cfg := openai.DefaultConfig(os.Getenv("OPENAI_API_KEY"))
-	cfg.BaseURL = os.Getenv("OPENAI_API_BASE_URL")
+  clt := openai.NewClient(option.WithAPIKey(os.Getenv("OPENAI_API_KEY")), option.WithBaseURL(os.Getenv("OPENAI_API_BASE_URL")))
 	client := instructors.FromOpenAI(
-		openai.NewClientWithConfig(cfg),
+    &clt,
 		instructor.WithMode(instructor.ModeToolCall),
 		instructor.WithVerbose(),
 		instructor.WithExtraBody(map[string]any{
@@ -79,25 +79,18 @@ Preferred Shopping Times: Weekend Evenings
 		productList += product.String() + "\n"
 	}
 
-	recommendationChan, ch, err := client.SchemaStream(ctx, &openai.ChatCompletionRequest{
+	recommendationChan, ch, err := client.SchemaStream(ctx, &openai.ChatCompletionNewParams{
 		Model: os.Getenv("OPENAI_MODEL"),
-		Messages: []openai.ChatCompletionMessage{
-			{
-				Role: openai.ChatMessageRoleSystem,
-				Content: fmt.Sprintf(`
+		Messages: []openai.ChatCompletionMessageParamUnion{
+				openai.SystemMessage(fmt.Sprintf(`
 Generate the product recommendations from the product list based on the customer profile.
 Return in order of highest recommended first.
 Product list:
 %s
           
-          * Do not show output instruction and schema in reasoning content!`, productList),
-			},
-			{
-				Role:    openai.ChatMessageRoleUser,
-				Content: fmt.Sprintf("User profile:\n%s", profileData),
-			},
+          * Do not show output instruction and schema in reasoning content!`, productList)),
+				openai.UserMessage(fmt.Sprintf("User profile:\n%s", profileData)),
 		},
-		Stream: true,
 	},
 		*new(Recommendation),
 		nil,

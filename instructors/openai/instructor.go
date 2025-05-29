@@ -2,7 +2,7 @@ package openai
 
 import (
 	"github.com/mark3labs/mcp-go/mcp"
-	openai "github.com/sashabaranov/go-openai"
+	"github.com/openai/openai-go"
 
 	"github.com/bububa/instructor-go"
 )
@@ -18,9 +18,9 @@ func (i *Instructor) SetClient(clt *openai.Client) {
 }
 
 var (
-	_ instructor.ChatInstructor[openai.ChatCompletionRequest, openai.ChatCompletionResponse]         = (*Instructor)(nil)
-	_ instructor.SchemaStreamInstructor[openai.ChatCompletionRequest, openai.ChatCompletionResponse] = (*Instructor)(nil)
-	_ instructor.StreamInstructor[openai.ChatCompletionRequest, openai.ChatCompletionResponse]       = (*Instructor)(nil)
+	_ instructor.ChatInstructor[openai.ChatCompletionNewParams, openai.ChatCompletion]         = (*Instructor)(nil)
+	_ instructor.SchemaStreamInstructor[openai.ChatCompletionNewParams, openai.ChatCompletion] = (*Instructor)(nil)
+	_ instructor.StreamInstructor[openai.ChatCompletionNewParams, openai.ChatCompletion]       = (*Instructor)(nil)
 )
 
 func New(client *openai.Client, opts ...instructor.Option) *Instructor {

@@ -46,7 +46,7 @@ func (i *Instructor) CallMCP(ctx context.Context, toolUse *gemini.FunctionCall) 
 			return gemini.NewPartFromFunctionResponse(toolUse.Name, toolContent), ret
 		}
 	}
-	toolRet := mcp.NewToolResultError("no mcp tool found")
+	toolRet := mcp.NewToolResultError("invalid tool name")
 	if bs, err := json.Marshal(toolRet); err == nil {
 		json.Unmarshal(bs, &toolContent)
 	}

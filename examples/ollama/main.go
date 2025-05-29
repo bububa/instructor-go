@@ -4,7 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	openai "github.com/sashabaranov/go-openai"
+	"github.com/openai/openai-go"
+	"github.com/openai/openai-go/option"
 
 	"github.com/bububa/instructor-go"
 	"github.com/bububa/instructor-go/instructors"
@@ -33,23 +34,19 @@ Facts:
 func main() {
 	ctx := context.Background()
 
-	config := openai.DefaultConfig("ollama")
-	config.BaseURL = "http://localhost:11434/v1"
+  clt := openai.NewClient(option.WithAPIKey("ollama"),option.WithBaseURL("http://localhost:11434/v1"))
 
 	client := instructors.FromOpenAI(
-		openai.NewClientWithConfig(config),
+    &clt,
 		instructor.WithMode(instructor.ModeJSON),
 		instructor.WithMaxRetries(3),
 	)
 
 	var character Character
-	err := client.Chat(ctx, &openai.ChatCompletionRequest{
+	err := client.Chat(ctx, &openai.ChatCompletionNewParams{
 		Model: "llama3",
-		Messages: []openai.ChatCompletionMessage{
-			{
-				Role:    openai.ChatMessageRoleUser,
-				Content: "Tell me about the Hal 9000",
-			},
+		Messages: []openai.ChatCompletionMessageParamUnion{
+				openai.UserMessage("Tell me about the Hal 9000"),
 		},
 	},
 		&character,

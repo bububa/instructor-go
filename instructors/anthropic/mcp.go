@@ -54,7 +54,7 @@ func (i *Instructor) CallMCP(ctx context.Context, toolUse *anthropic.MessageCont
 			return anthropic.NewToolResultMessageContent(toolUse.ID, toolContent, isError), ret
 		}
 	}
-	toolRet := mcp.NewToolResultError("no mcp tool found")
+	toolRet := mcp.NewToolResultError("invalid tool name")
 	if bs, err := json.Marshal(toolRet); err == nil {
 		toolContent = string(bs)
 	}

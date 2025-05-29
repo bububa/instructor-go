@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	openai "github.com/sashabaranov/go-openai"
+	"github.com/openai/openai-go"
+	"github.com/openai/openai-go/option"
 
 	"github.com/bububa/instructor-go"
 	"github.com/bububa/instructor-go/instructors"
@@ -32,20 +33,18 @@ func (s *Search) execute() {
 type Searches = []Search
 
 func segment(ctx context.Context, data string) *Searches {
+  clt := openai.NewClient(option.WithAPIKey(os.Getenv("OPENAI_API_KEY")))
 	client := instructors.FromOpenAI(
-		openai.NewClient(os.Getenv("OPENAI_API_KEY")),
+    &clt,
 		instructor.WithMode(instructor.ModeToolCall),
 		instructor.WithMaxRetries(3),
 	)
 
 	var searches Searches
-	err := client.Chat(ctx, &openai.ChatCompletionRequest{
-		Model: openai.GPT4o,
-		Messages: []openai.ChatCompletionMessage{
-			{
-				Role:    openai.ChatMessageRoleUser,
-				Content: fmt.Sprintf("Consider the data below: '\n%s' and segment it into multiple search queries", data),
-			},
+	err := client.Chat(ctx, &openai.ChatCompletionNewParams{
+		Model: openai.ChatModelGPT4oMini,
+		Messages: []openai.ChatCompletionMessageParamUnion{
+				openai.UserMessage(fmt.Sprintf("Consider the data below: '\n%s' and segment it into multiple search queries", data)),
 		},
 	},
 		&searches,
