@@ -30,6 +30,16 @@ func NewStreamEncoder(req any) (*StreamEncoder, error) {
 	}, nil
 }
 
+func (e *StreamEncoder) Instance() any {
+	tValue := reflect.New(e.reqType)
+	return tValue.Interface()
+}
+
+func (e *StreamEncoder) Elem() any {
+	tValue := reflect.New(e.reqType)
+	return tValue.Elem()
+}
+
 func (e *StreamEncoder) EnableValidate() {
 	e.validate = true
 }

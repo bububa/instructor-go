@@ -37,9 +37,9 @@ Recommendation [
 func main() {
 	ctx := context.Background()
 
-  clt := openai.NewClient(option.WithAPIKey(os.Getenv("OPENAI_API_KEY")), option.WithBaseURL(os.Getenv("OPENAI_API_BASE_URL")))
+	clt := openai.NewClient(option.WithAPIKey(os.Getenv("OPENAI_API_KEY")), option.WithBaseURL(os.Getenv("OPENAI_API_BASE_URL")))
 	client := instructors.FromOpenAI(
-    &clt,
+		&clt,
 		instructor.WithMode(instructor.ModeToolCall),
 		instructor.WithVerbose(),
 		instructor.WithExtraBody(map[string]any{
@@ -82,17 +82,17 @@ Preferred Shopping Times: Weekend Evenings
 	recommendationChan, ch, err := client.SchemaStream(ctx, &openai.ChatCompletionNewParams{
 		Model: os.Getenv("OPENAI_MODEL"),
 		Messages: []openai.ChatCompletionMessageParamUnion{
-				openai.SystemMessage(fmt.Sprintf(`
+			openai.SystemMessage(fmt.Sprintf(`
 Generate the product recommendations from the product list based on the customer profile.
 Return in order of highest recommended first.
 Product list:
 %s
           
           * Do not show output instruction and schema in reasoning content!`, productList)),
-				openai.UserMessage(fmt.Sprintf("User profile:\n%s", profileData)),
+			openai.UserMessage(fmt.Sprintf("User profile:\n%s", profileData)),
 		},
 	},
-		*new(Recommendation),
+		Recommendation{},
 		nil,
 	)
 	if err != nil {
@@ -100,13 +100,27 @@ Product list:
 	}
 
 	go func() {
-		fmt.Println("Thinking start...")
+		var thinking bool
 		for item := range ch {
-			if item.Type == instructor.ThinkingStream {
+			switch item.Type {
+			case instructor.ThinkingStream:
+				if !thinking {
+					fmt.Println("Thinking start...")
+				}
+				thinking = true
 				fmt.Print(item.Content)
+			case instructor.ContentStream:
+				if thinking {
+					fmt.Println("Thinking end!")
+				}
+				thinking = false
+				fmt.Print(item.Content)
+			case instructor.ErrorStream:
+				fmt.Println("ERROR:", item.Err)
+			case instructor.ToolCallStream:
+				continue
 			}
 		}
-		fmt.Println("Thinking end...")
 	}()
 
 	for instance := range recommendationChan {

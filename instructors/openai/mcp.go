@@ -11,7 +11,13 @@ import (
 )
 
 func (i *Instructor) InjectMCP(ctx context.Context, req *openai.ChatCompletionNewParams) {
-	req.Tools = make([]openai.ChatCompletionToolParam, 0, len(i.MCPTools()))
+  l := len(i.MCPTools())
+  if l == 0 {
+    return
+  }
+  if req.Tools == nil {
+	  req.Tools = make([]openai.ChatCompletionToolParam, 0, l)
+  }
 	for _, v := range i.MCPTools() {
 		tool := openai.ChatCompletionToolParam{
 			Function: openai.FunctionDefinitionParam{

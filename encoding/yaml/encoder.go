@@ -41,6 +41,16 @@ func NewEncoder(req any) *Encoder {
 	}
 }
 
+func (e *Encoder) Instance() any {
+	tValue := reflect.New(e.reqType)
+	return tValue.Interface()
+}
+
+func (e *Encoder) Elem() any {
+	tValue := reflect.New(e.reqType)
+	return tValue.Elem()
+}
+
 func (e *Encoder) Marshal(v any) ([]byte, error) {
 	if e.commentStyle == NoComment {
 		return yaml.Marshal(v)

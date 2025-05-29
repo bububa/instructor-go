@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/bububa/ljson"
+	// "github.com/bububa/ljson"
 	"github.com/invopop/jsonschema"
 	"github.com/openai/openai-go"
 
@@ -36,15 +36,15 @@ func (i *Instructor) Chat(
 func (i *Instructor) Handler(ctx context.Context, request *openai.ChatCompletionNewParams, response *openai.ChatCompletion) (string, error) {
 	req := *request
 	extraFields := req.ExtraFields()
-  if extraBody := i.ExtraBody(); extraBody != nil {
-    if extraFields == nil {
-      extraFields = map[string]any{
-        "extra_body": extraBody,
-      }
-    } else {
-      extraFields["extra_body"] = extraBody
-    }
-  }
+	if extraBody := i.ExtraBody(); extraBody != nil {
+		if extraFields == nil {
+			extraFields = map[string]any{
+				"extra_body": extraBody,
+			}
+		} else {
+			extraFields["extra_body"] = extraBody
+		}
+	}
 	if thinking := i.ThinkingConfig(); thinking != nil {
 		if extraFields == nil {
 			extraFields = make(map[string]any, 2)
@@ -149,41 +149,34 @@ func (i *Instructor) chatJSON(ctx context.Context, request openai.ChatCompletion
 	}
 	structName := schema.NameFromRef()
 
+	var hasSystem bool
 	for idx, msg := range request.Messages {
-    if system := msg.OfSystem; system != nil {
+		if system := msg.OfSystem; system != nil {
 			bs := i.Encoder().Context()
 			if bs != nil {
 				system.Content.OfString = openai.String(fmt.Sprintf("%s\n\n#OUTPUT SCHEMA\n%s", system.Content.OfString.String(), string(bs)))
 				request.Messages[idx] = msg
+				hasSystem = true
 			}
 		}
 	}
 
 	if i.Mode() == instructor.ModeJSONSchema || i.Mode() == instructor.ModeJSONStrict {
-		schemaWrapper := ResponseFormatSchemaWrapper{
-			Type:        "object",
-			Required:    []string{structName},
-			Definitions: &schema.Definitions,
-			Properties: &jsonschema.Definitions{
-				structName: schema.Definitions[structName],
-			},
-			AdditionalProperties: false,
-		}
-
-		schemaJSON, _ := json.Marshal(schemaWrapper)
-		schemaRaw := json.RawMessage(schemaJSON)
-
 		request.ResponseFormat = openai.ChatCompletionNewParamsResponseFormatUnion{
 			OfJSONSchema: &openai.ResponseFormatJSONSchemaParam{
 				JSONSchema: openai.ResponseFormatJSONSchemaJSONSchemaParam{
 					Name:        structName,
 					Description: openai.String(schema.Description),
-					Schema:      schemaRaw,
+					Schema:      schema,
 					Strict:      openai.Bool(i.Mode() == instructor.ModeJSONStrict),
 				},
 			},
 		}
 	} else {
+		if !hasSystem {
+			bs := i.Encoder().Context()
+			request.Messages = append(request.Messages, openai.UserMessage(fmt.Sprintf("#OUTPUT SCHEMA\n%s", string(bs))))
+		}
 		request.ResponseFormat = openai.ChatCompletionNewParamsResponseFormatUnion{
 			OfJSONObject: new(openai.ResponseFormatJSONObjectParam),
 		}
@@ -194,19 +187,19 @@ func (i *Instructor) chatJSON(ctx context.Context, request openai.ChatCompletion
 		return "", err
 	}
 
-	if i.Mode() == instructor.ModeJSONStrict || i.Mode() == instructor.ModeJSONSchema {
-		resMap := make(map[string]any)
-		_ = ljson.Unmarshal([]byte(text), &resMap)
-
-		cleanedText, _ := json.Marshal(resMap[structName])
-		text = string(cleanedText)
-	}
+	// if i.Mode() == instructor.ModeJSONStrict || i.Mode() == instructor.ModeJSONSchema {
+	// 	resMap := make(map[string]any)
+	// 	_ = ljson.Unmarshal([]byte(text), &resMap)
+	//
+	// 	cleanedText, _ := json.Marshal(resMap[structName])
+	// 	text = string(cleanedText)
+	// }
 	return text, nil
 }
 
 func (i *Instructor) chatCompletion(ctx context.Context, request openai.ChatCompletionNewParams, response *openai.ChatCompletion) (string, error) {
 	for idx, msg := range request.Messages {
-    if system := msg.OfSystem; system != nil {
+		if system := msg.OfSystem; system != nil {
 			bs := i.Encoder().Context()
 			if bs != nil {
 				system.Content.OfString = openai.String(fmt.Sprintf("%s\n\n#OUTPUT SCHEMA\n%s", system.Content.OfString.String(), string(bs)))

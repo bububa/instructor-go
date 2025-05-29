@@ -30,19 +30,22 @@ func (s *Search) execute() {
 	fmt.Printf("Searching for `%s` with query `%s` using `%s`\n", s.Topic, s.Query, s.Type)
 }
 
-type Searches = []Search
+type Searches struct {
+  Items []Search `json:"items"`
+}
 
 func segment(ctx context.Context, data string) *Searches {
-  clt := openai.NewClient(option.WithAPIKey(os.Getenv("OPENAI_API_KEY")))
+	clt := openai.NewClient(option.WithAPIKey(os.Getenv("OPENAI_API_KEY")), option.WithBaseURL(os.Getenv("OPENAI_API_BASE_URL")))
 	client := instructors.FromOpenAI(
     &clt,
 		instructor.WithMode(instructor.ModeToolCall),
 		instructor.WithMaxRetries(3),
+    instructor.WithVerbose(),
 	)
 
 	var searches Searches
 	err := client.Chat(ctx, &openai.ChatCompletionNewParams{
-		Model: openai.ChatModelGPT4oMini,
+		Model: os.Getenv("OPENAI_MODEL"),
 		Messages: []openai.ChatCompletionMessageParamUnion{
 				openai.UserMessage(fmt.Sprintf("Consider the data below: '\n%s' and segment it into multiple search queries", data)),
 		},
@@ -61,7 +64,8 @@ func main() {
 	ctx := context.Background()
 
 	q := "Search for a picture of a cat, a video of a dog, and the taxonomy of each"
-	for _, search := range *segment(ctx, q) {
+  searches := *segment(ctx, q)
+	for _, search := range searches.Items {
 		search.execute()
 	}
 	/*

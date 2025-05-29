@@ -12,6 +12,7 @@ import (
 
 type Encoder struct {
 	schema *instructor.Schema
+  reqType reflect.Type
 }
 
 func NewEncoder(req any, namer instructor.SchemaNamer) (*Encoder, error) {
@@ -22,8 +23,20 @@ func NewEncoder(req any, namer instructor.SchemaNamer) (*Encoder, error) {
 	}
 	return &Encoder{
 		schema: schema,
+    reqType: t,
 	}, nil
 }
+
+func (e *Encoder) Instance() any {
+	tValue := reflect.New(e.reqType)
+	return tValue.Interface()
+}
+
+func (e *Encoder) Elem() any {
+	tValue := reflect.New(e.reqType)
+	return tValue.Elem()
+}
+
 
 func (e *Encoder) Marshal(req any) ([]byte, error) {
 	return []byte(e.schema.String), nil
@@ -61,7 +74,7 @@ func (e *Encoder) Schema() *instructor.Schema {
 func cleanup(bs []byte) []byte {
 	trimmedPrefix := trimPrefixBeforeJSON(bs)
 	trimmedJSON := trimPostfixAfterJSON(trimmedPrefix)
-	return trimmedJSON
+  return trimmedJSON
 }
 
 // Removes any prefixes before the JSON (like "Sure, here you go:")

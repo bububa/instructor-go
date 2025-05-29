@@ -13,7 +13,13 @@ import (
 )
 
 func (i *Instructor) InjectMCP(ctx context.Context, req *gemini.GenerateContentConfig) {
-	req.Tools = make([]*gemini.Tool, 0, len(i.MCPTools()))
+  l := len(i.MCPTools())
+  if l == 0 {
+    return
+  }
+  if req.Tools == nil {
+	  req.Tools = make([]*gemini.Tool, 0, l)
+  }
 	for _, v := range i.MCPTools() {
 		f := gemini.FunctionDeclaration{
 			Name:        fmt.Sprintf("%s_%s", v.ServerName, v.Tool.GetName()),

@@ -16,6 +16,7 @@ import (
 	jsonenc "github.com/bububa/instructor-go/encoding/json"
 	"github.com/bububa/instructor-go/internal"
 	"github.com/bububa/instructor-go/internal/chat"
+	"github.com/mark3labs/mcp-go/mcp"
 )
 
 func (i *Instructor) SchemaStream(
@@ -52,7 +53,7 @@ func (i *Instructor) chatToolCallStream(ctx context.Context, request Request, re
 		SystemInstruction: request.System,
 		Tools:             createTools(schema),
 	}
-	return i.stream(ctx, cfg, request, response)
+	return i.stream(ctx, cfg, request, response, false)
 }
 
 func (i *Instructor) chatJSONStream(ctx context.Context, request Request, response *gemini.GenerateContentResponse, strict bool) (<-chan instructor.StreamData, error) {
@@ -76,17 +77,19 @@ func (i *Instructor) chatJSONStream(ctx context.Context, request Request, respon
 		schema := enc.Schema()
 		convertSchema(schema.Schema, cfg.ResponseSchema)
 	}
-	return i.stream(ctx, cfg, request, response)
+	return i.stream(ctx, cfg, request, response, false)
 }
 
-func (i *Instructor) stream(ctx context.Context, cfg gemini.GenerateContentConfig, request Request, response *gemini.GenerateContentResponse) (<-chan instructor.StreamData, error) {
+func (i *Instructor) stream(ctx context.Context, cfg gemini.GenerateContentConfig, request Request, response *gemini.GenerateContentResponse, reRun bool) (<-chan instructor.StreamData, error) {
 	if thinkingConfig := i.ThinkingConfig(); thinkingConfig != nil {
 		cfg.ThinkingConfig = &gemini.ThinkingConfig{
 			IncludeThoughts: thinkingConfig.Enabled,
 			ThinkingBudget:  internal.ToPtr(int32(thinkingConfig.Budget)),
 		}
 	}
-	i.InjectMCP(ctx, &cfg)
+	if !reRun {
+		i.InjectMCP(ctx, &cfg)
+	}
 
 	if i.Verbose() {
 		cfgBytes, _ := json.MarshalIndent(cfg, "", "  ")
@@ -105,7 +108,7 @@ func (i *Instructor) stream(ctx context.Context, cfg gemini.GenerateContentConfi
 		defer func() {
 			if len(toolRequest.History) > 0 {
 				request.History = append(request.History, toolRequest.History...)
-				tmpCh, err := i.stream(ctx, cfg, request, response)
+				tmpCh, err := i.stream(ctx, cfg, request, response, true)
 				if err != nil {
 					return
 				}
@@ -129,7 +132,7 @@ func (i *Instructor) stream(ctx context.Context, cfg gemini.GenerateContentConfi
 				}
 			}
 		}()
-		ch, err := i.createStream(ctx, iter, response, &toolRequest)
+		ch, err := i.createStream(ctx, &cfg, iter, response, &toolRequest)
 		if err != nil {
 			return
 		}
@@ -140,7 +143,7 @@ func (i *Instructor) stream(ctx context.Context, cfg gemini.GenerateContentConfi
 	return outCh, nil
 }
 
-func (i *Instructor) createStream(ctx context.Context, iter iter.Seq2[*gemini.GenerateContentResponse, error], response *gemini.GenerateContentResponse, toolRequest *Request) (<-chan instructor.StreamData, error) {
+func (i *Instructor) createStream(ctx context.Context, cfg *gemini.GenerateContentConfig, iter iter.Seq2[*gemini.GenerateContentResponse, error], response *gemini.GenerateContentResponse, toolRequest *Request) (<-chan instructor.StreamData, error) {
 	ch := make(chan instructor.StreamData)
 
 	go func() {
@@ -174,6 +177,26 @@ func (i *Instructor) createStream(ctx context.Context, iter iter.Seq2[*gemini.Ge
 				part, call := i.CallMCP(ctx, &toolCall)
 				if call != nil {
 					ch <- instructor.StreamData{Type: instructor.ToolCallStream, ToolCall: call}
+				} else {
+					var shouldReturn bool
+					for _, tool := range cfg.Tools {
+						for _, fn := range tool.FunctionDeclarations {
+							if fn.Name == toolCall.Name {
+								callReq := new(mcp.CallToolRequest)
+								callReq.Params.Name = toolCall.Name
+								callReq.Params.Arguments = toolCall.Args
+								call := instructor.ToolCall{
+									Request: callReq,
+								}
+								ch <- instructor.StreamData{Type: instructor.ToolCallStream, ToolCall: &call}
+								shouldReturn = true
+							}
+						}
+					}
+					if shouldReturn {
+						toolRequest.History = nil
+						return
+					}
 				}
 				contents = append(contents, part)
 			}
@@ -184,7 +207,7 @@ func (i *Instructor) createStream(ctx context.Context, iter iter.Seq2[*gemini.Ge
 				return
 			}
 			if err != nil {
-			  ch <- instructor.StreamData{Type: instructor.ErrorStream, Err: err}
+				ch <- instructor.StreamData{Type: instructor.ErrorStream, Err: err}
 				return
 			}
 			if response != nil {

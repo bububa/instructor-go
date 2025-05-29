@@ -6,7 +6,6 @@ require (
 	github.com/BurntSushi/toml v1.5.0
 	github.com/brianvoe/gofakeit/v7 v7.2.1
 	github.com/bububa/ljson v1.0.1
-	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/cohere-ai/cohere-go/v2 v2.14.1
 	github.com/go-playground/validator/v10 v10.26.0
 	github.com/invopop/jsonschema v0.13.0

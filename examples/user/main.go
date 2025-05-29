@@ -20,11 +20,12 @@ type Person struct {
 func main() {
 	ctx := context.Background()
 
-  clt := openai.NewClient(option.WithAPIKey(os.Getenv("OPENAI_API_KEY")))
+	clt := openai.NewClient(option.WithAPIKey(os.Getenv("OPENAI_API_KEY")), option.WithBaseURL(os.Getenv("OPENAI_API_BASE_URL")))
 	client := instructors.FromOpenAI(
     &clt,
 		instructor.WithMode(instructor.ModeJSON),
 		instructor.WithMaxRetries(3),
+    instructor.WithVerbose(),
 	)
 
 	var (
@@ -34,7 +35,7 @@ func main() {
 	err := client.Chat(
 		ctx,
 		&openai.ChatCompletionNewParams{
-			Model: openai.ChatModelGPT4oMini,
+			Model: os.Getenv("OPENAI_MODEL"),
 			Messages: []openai.ChatCompletionMessageParamUnion{
 					openai.UserMessage( "Extract Robby is 22 years old."),
 			},

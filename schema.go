@@ -3,17 +3,21 @@ package instructor
 import (
 	"encoding/json"
 	"reflect"
-	"strconv"
+  "fmt"
+	// "strconv"
 	"strings"
 	"sync"
 
-	"github.com/cespare/xxhash/v2"
+	// "github.com/cespare/xxhash/v2"
 	"github.com/invopop/jsonschema"
 )
 
 var reflectorPool = sync.Pool{
 	New: func() any {
-		return new(jsonschema.Reflector)
+		return &jsonschema.Reflector{
+      AllowAdditionalProperties: false,
+		  DoNotReference:            false,
+    }
 	},
 }
 
@@ -38,20 +42,27 @@ type FunctionDefinition struct {
 }
 
 func NewSchema(t reflect.Type, namer SchemaNamer) (*Schema, error) {
-	schema := JSONSchema(t, namer)
+	schema := JSONSchema(t, true, namer)
 
 	str, err := json.MarshalIndent(schema, "", "  ")
 	if err != nil {
 		return nil, err
 	}
 
-	funcs := ToFunctionSchema(t, schema)
+	// funcs := ToFunctionSchema(t, schema)
+  // funcSchema := JSONSchema(t, true, namer)
 
 	s := &Schema{
 		Schema: schema,
 		String: string(str),
 
-		Functions: funcs,
+		Functions: []FunctionDefinition{
+    {
+      Name: "instructor-go-func",
+      Description: schema.Description,
+      Parameters: schema,
+      },
+    },
 	}
 
 	return s, nil
@@ -81,13 +92,15 @@ func ToFunctionSchema(tType reflect.Type, tSchema *jsonschema.Schema) []Function
 }
 
 func (s *Schema) NameFromRef() string {
-	return strings.Split(s.Ref, "/")[2] // ex: '#/$defs/MyStruct'
+  arr := strings.Split(s.Ref, "/")
+	return arr[len(arr) - 1] // ex: '#/$defs/MyStruct'
 }
 
 // JSONSchema return the json schema of the configuration
-func JSONSchema(t reflect.Type, namer SchemaNamer) *jsonschema.Schema {
+func JSONSchema(t reflect.Type, doNotReference bool, namer SchemaNamer) *jsonschema.Schema {
 	r := reflectorPool.Get().(*jsonschema.Reflector)
 	defer reflectorPool.Put(r)
+  r.DoNotReference = doNotReference
 
 	if namer != nil {
 		r.Namer = namer
@@ -98,16 +111,21 @@ func JSONSchema(t reflect.Type, namer SchemaNamer) *jsonschema.Schema {
 		// the following code is to fix this issue by adding the package name to the struct name
 		// p.s. this issue has been reported in: https://github.com/invopop/jsonschema/issues/42
 		r.Namer = func(t reflect.Type) string {
+      if t.Kind() == reflect.Pointer {
+        t = t.Elem()
+      }
 			name := t.Name()
-			if t.Kind() == reflect.Struct {
-				v := reflect.New(t)
-				vt := v.Elem().Type()
-				name = vt.PkgPath() + "/" + vt.Name()
-				name = strconv.FormatUint(xxhash.Sum64String(name), 10)
-			}
+			// if t.Kind() == reflect.Struct {
+			// 	v := reflect.New(t)
+			// 	vt := v.Elem().Type()
+			// 	name = vt.PkgPath() + "/" + vt.Name()
+			// 	name = strconv.FormatUint(xxhash.Sum64String(name), 10)
+			// }
 			return name
 		}
 	}
 
-	return r.ReflectFromType(t)
+  ret := r.ReflectFromType(t)
+  ret.Ref = fmt.Sprintf("#/$defs/%s", r.Namer(t))
+  return ret
 }

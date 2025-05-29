@@ -73,11 +73,16 @@ func (ai ActionItems) String() string {
 func main() {
 	ctx := context.Background()
 
-  clt := openai.NewClient(option.WithAPIKey(os.Getenv("OPENAI_API_KEY")))
+	clt := openai.NewClient(option.WithAPIKey(os.Getenv("OPENAI_API_KEY")), option.WithBaseURL(os.Getenv("OPENAI_API_BASE_URL")))
 	client := instructors.FromOpenAI(
 		&clt,
-		instructor.WithMode(instructor.ModeJSONStrict),
+		instructor.WithMode(instructor.ModeJSON),
 		instructor.WithMaxRetries(0),
+    instructor.WithVerbose(),
+    instructor.WithoutThinking(),
+    instructor.WithExtraBody(map[string]any{
+      "enable_thinking": false,
+    }),
 	)
 
 	transcript := `
@@ -113,7 +118,7 @@ Alice: Sounds like a plan. Let's get these tasks modeled out and get started.
 	err := client.Chat(
 		ctx,
 		&openai.ChatCompletionNewParams{
-			Model:       openai.ChatModelGPT4oMini,
+			Model: os.Getenv("OPENAI_MODEL"),
 			Temperature: openai.Opt(.2),
 			Messages: []openai.ChatCompletionMessageParamUnion{
 					openai.SystemMessage("The following is a transcript of a meeting between a manager and their team. The manager is assigning tasks to their team members and creating action items for them to complete."),
