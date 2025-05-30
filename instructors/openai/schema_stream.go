@@ -117,8 +117,10 @@ func (i *Instructor) createStream(ctx context.Context, request openai.ChatComple
 			extraFields = make(map[string]any, 2)
 		}
 		if thinking.Enabled {
+			extraFields["enable_thinking"] = true
 			extraFields["thinking"] = "enabled"
 		} else {
+			extraFields["enable_thinking"] = false
 			extraFields["thinking"] = "disabled"
 		}
 		extraFields["chat_template_kwargs"] = map[string]any{

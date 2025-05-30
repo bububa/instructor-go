@@ -30,10 +30,6 @@ func (i *Instructor) Chat(
 	responseType any,
 	response *openai.ChatCompletion,
 ) error {
-	return chat.Handler(i, ctx, request, responseType, response)
-}
-
-func (i *Instructor) Handler(ctx context.Context, request *openai.ChatCompletionNewParams, response *openai.ChatCompletion) (string, error) {
 	req := *request
 	extraFields := req.ExtraFields()
 	if extraBody := i.ExtraBody(); extraBody != nil {
@@ -50,10 +46,12 @@ func (i *Instructor) Handler(ctx context.Context, request *openai.ChatCompletion
 			extraFields = make(map[string]any, 2)
 		}
 		if thinking.Enabled {
+			extraFields["enable_thinking"] = true
 			extraFields["thinking"] = map[string]string{
 				"type": "enabled",
 			}
 		} else {
+			extraFields["enable_thinking"] = false
 			extraFields["thinking"] = map[string]string{
 				"type": "disabled",
 			}
@@ -64,6 +62,11 @@ func (i *Instructor) Handler(ctx context.Context, request *openai.ChatCompletion
 		}
 	}
 	req.SetExtraFields(extraFields)
+	return chat.Handler(i, ctx, &req, responseType, response)
+}
+
+func (i *Instructor) Handler(ctx context.Context, request *openai.ChatCompletionNewParams, response *openai.ChatCompletion) (string, error) {
+	req := *request
 	switch i.Mode() {
 	case instructor.ModeToolCall, instructor.ModeToolCallStrict:
 		return i.chatToolCall(ctx, req, response)
