@@ -2,13 +2,16 @@ package chat
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"log"
 
 	"github.com/bububa/instructor-go"
 	"github.com/bububa/instructor-go/encoding"
 )
+
+type JSONMarshaler interface {
+	MarshalJSON() ([]byte, error)
+}
 
 func Handler[T any, RESP any](i instructor.ChatInstructor[T, RESP], ctx context.Context, request *T, responseType any, response *RESP) error {
 	var (
@@ -27,13 +30,6 @@ func Handler[T any, RESP any](i instructor.ChatInstructor[T, RESP], ctx context.
 	retErr := errors.New("hit max retry attempts")
 
 	for attempt := 0; attempt <= i.MaxRetries(); attempt++ {
-		if i.Verbose() {
-			if bs, err := json.MarshalIndent(request, "", "  "); err != nil {
-				log.Printf("%s Request(attempt:%d) MarshalError: %v\n", i.Provider(), attempt, err)
-			} else {
-				log.Printf("%s Request(attempt:%d): %s\n", i.Provider(), attempt, string(bs))
-			}
-		}
 
 		resp := new(RESP)
 		text, err := i.Handler(ctx, request, resp)
