@@ -41,7 +41,7 @@ func (i *Instructor) Handler(ctx context.Context, request *openai.ChatCompletion
 			extraFields = map[string]any{
 				"extra_body": extraBody,
 			}
-		} else {
+		} else if _, ok := extraFields["extra_body"]; !ok {
 			extraFields["extra_body"] = extraBody
 		}
 	}

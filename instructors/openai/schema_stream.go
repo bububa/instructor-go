@@ -9,9 +9,9 @@ import (
 	"log"
 
 	"github.com/invopop/jsonschema"
+	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/openai/openai-go"
 	"github.com/openai/openai-go/packages/respjson"
-	"github.com/mark3labs/mcp-go/mcp"
 
 	"github.com/bububa/instructor-go"
 	jsonenc "github.com/bububa/instructor-go/encoding/json"
@@ -98,9 +98,9 @@ func (i *Instructor) chatSchemaStream(ctx context.Context, request openai.ChatCo
 }
 
 func (i *Instructor) createStream(ctx context.Context, request openai.ChatCompletionNewParams, response *openai.ChatCompletion, toolRequest bool) (<-chan instructor.StreamData, error) {
-  if !toolRequest {
-	  i.InjectMCP(ctx, &request)
-  }
+	if !toolRequest {
+		i.InjectMCP(ctx, &request)
+	}
 	request.StreamOptions.IncludeUsage = openai.Bool(true)
 	extraFields := request.ExtraFields()
 	if extraBody := i.ExtraBody(); extraBody != nil {
@@ -108,7 +108,7 @@ func (i *Instructor) createStream(ctx context.Context, request openai.ChatComple
 			extraFields = map[string]any{
 				"extra_body": extraBody,
 			}
-		} else {
+		} else if _, ok := extraFields["extra_body"]; !ok {
 			extraFields["extra_body"] = extraBody
 		}
 	}
@@ -172,23 +172,23 @@ func (i *Instructor) createStream(ctx context.Context, request openai.ChatComple
 				if call := i.CallMCP(ctx, &toolCall, &request); call != nil {
 					ch <- instructor.StreamData{Type: instructor.ToolCallStream, ToolCall: call}
 				} else {
-          var shouldReturn bool
-          for _, tool := range request.Tools {
-            if tool.Function.Name == toolCall.Function.Name {
-              callReq := new(mcp.CallToolRequest)
-              callReq.Params.Name = toolCall.Function.Name
-              callReq.Params.Arguments = toolCall.Function.Arguments
-              call := instructor.ToolCall{
-                Request: callReq,
-                }
-              ch <- instructor.StreamData{Type: instructor.ToolCallStream, ToolCall: &call}
-              shouldReturn = true
-            }
-          }
-          if shouldReturn {
-            return
-          }
-        }
+					var shouldReturn bool
+					for _, tool := range request.Tools {
+						if tool.Function.Name == toolCall.Function.Name {
+							callReq := new(mcp.CallToolRequest)
+							callReq.Params.Name = toolCall.Function.Name
+							callReq.Params.Arguments = toolCall.Function.Arguments
+							call := instructor.ToolCall{
+								Request: callReq,
+							}
+							ch <- instructor.StreamData{Type: instructor.ToolCallStream, ToolCall: &call}
+							shouldReturn = true
+						}
+					}
+					if shouldReturn {
+						return
+					}
+				}
 			}
 			var usage openai.CompletionUsage
 			if response != nil {
@@ -201,7 +201,7 @@ func (i *Instructor) createStream(ctx context.Context, request openai.ChatComple
 				response.Usage.TotalTokens += usage.TotalTokens
 			}
 			if err != nil {
-			  ch <- instructor.StreamData{Type: instructor.ErrorStream, Err: err}
+				ch <- instructor.StreamData{Type: instructor.ErrorStream, Err: err}
 				return
 			}
 			for v := range tmpCh {
