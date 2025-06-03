@@ -13,9 +13,9 @@ type Instructor struct {
 }
 
 var (
-	_ instructor.ChatInstructor[anthropic.MessagesRequest, anthropic.MessagesResponse]         = (*Instructor)(nil)
-	_ instructor.SchemaStreamInstructor[anthropic.MessagesRequest, anthropic.MessagesResponse] = (*Instructor)(nil)
-	_ instructor.StreamInstructor[anthropic.MessagesRequest, anthropic.MessagesResponse]       = (*Instructor)(nil)
+	_ instructor.ChatInstructor[anthropic.MessagesRequest, anthropic.MessagesResponse, anthropic.Message]         = (*Instructor)(nil)
+	_ instructor.SchemaStreamInstructor[anthropic.MessagesRequest, anthropic.MessagesResponse, anthropic.Message] = (*Instructor)(nil)
+	_ instructor.StreamInstructor[anthropic.MessagesRequest, anthropic.MessagesResponse, anthropic.Message]       = (*Instructor)(nil)
 )
 
 func New(client *anthropic.Client, opts ...instructor.Option) *Instructor {

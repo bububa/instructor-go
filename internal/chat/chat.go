@@ -13,7 +13,7 @@ type JSONMarshaler interface {
 	MarshalJSON() ([]byte, error)
 }
 
-func Handler[T any, RESP any](i instructor.ChatInstructor[T, RESP], ctx context.Context, request *T, responseType any, response *RESP) error {
+func Handler[T any, RESP any, HIS any](i instructor.ChatInstructor[T, RESP, HIS], ctx context.Context, request *T, responseType any, response *RESP) error {
 	var (
 		enc = i.Encoder()
 		err error

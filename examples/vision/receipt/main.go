@@ -51,19 +51,19 @@ func (r *Receipt) Validate() error {
 	return nil
 }
 
-func extract(ctx context.Context, client instructor.ChatInstructor[openai.ChatCompletionNewParams, openai.ChatCompletion], url string) (*Receipt, error) {
+func extract(ctx context.Context, client instructor.ChatInstructor[openai.ChatCompletionNewParams, openai.ChatCompletion, openai.ChatCompletionMessageParamUnion], url string) (*Receipt, error) {
 	var receipt Receipt
 	err := client.Chat(
 		ctx,
 		&openai.ChatCompletionNewParams{
 			Model: openai.ChatModelGPT4oMini,
 			Messages: []openai.ChatCompletionMessageParamUnion{
-					openai.SystemMessage(`Analyze the image and return the items (include tax and coupons as their own items) in the receipt and the total amount.`),
-        openai.UserMessage([]openai.ChatCompletionContentPartUnionParam{
-          openai.ImageContentPart(openai.ChatCompletionContentPartImageImageURLParam{
-            URL: url,
-          }),
-        }),
+				openai.SystemMessage(`Analyze the image and return the items (include tax and coupons as their own items) in the receipt and the total amount.`),
+				openai.UserMessage([]openai.ChatCompletionContentPartUnionParam{
+					openai.ImageContentPart(openai.ChatCompletionContentPartImageImageURLParam{
+						URL: url,
+					}),
+				}),
 			},
 		},
 		&receipt,
@@ -83,9 +83,9 @@ func extract(ctx context.Context, client instructor.ChatInstructor[openai.ChatCo
 func main() {
 	ctx := context.Background()
 
-  clt := openai.NewClient(option.WithAPIKey(os.Getenv("OPENAI_API_KEY")), option.WithBaseURL(os.Getenv("OPENAI_BASE_URL")))
+	clt := openai.NewClient(option.WithAPIKey(os.Getenv("OPENAI_API_KEY")), option.WithBaseURL(os.Getenv("OPENAI_BASE_URL")))
 	client := instructors.FromOpenAI(
-    &clt,
+		&clt,
 		instructor.WithMode(instructor.ModeJSON),
 		instructor.WithMaxRetries(3),
 	)

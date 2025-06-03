@@ -17,9 +17,9 @@ func (i *Instructor) SetClient(clt *gemini.Client) {
 }
 
 var (
-	_ instructor.ChatInstructor[Request, gemini.GenerateContentResponse]         = (*Instructor)(nil)
-	_ instructor.SchemaStreamInstructor[Request, gemini.GenerateContentResponse] = (*Instructor)(nil)
-	_ instructor.StreamInstructor[Request, gemini.GenerateContentResponse]       = (*Instructor)(nil)
+	_ instructor.ChatInstructor[Request, gemini.GenerateContentResponse, *gemini.Content]         = (*Instructor)(nil)
+	_ instructor.SchemaStreamInstructor[Request, gemini.GenerateContentResponse, *gemini.Content] = (*Instructor)(nil)
+	_ instructor.StreamInstructor[Request, gemini.GenerateContentResponse, *gemini.Content]       = (*Instructor)(nil)
 )
 
 func New(client *gemini.Client, opts ...instructor.Option) *Instructor {
