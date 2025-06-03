@@ -144,9 +144,7 @@ func (i *Instructor) createStream(ctx context.Context, request openai.ChatComple
 		bs := new(bytes.Buffer)
 		var toolCalls []openai.ChatCompletionMessageToolCall
 		if i.Verbose() && !toolRequest {
-			fmt.Fprintf(bs, "%s Response: \n", i.Provider())
 			defer func() {
-				log.Println(bs.String())
 			}()
 		}
 		defer func() {
@@ -155,6 +153,9 @@ func (i *Instructor) createStream(ctx context.Context, request openai.ChatComple
 					if txt := bs.String(); txt != "" {
 						i.memory.Add(openai.AssistantMessage(txt))
 					}
+				}
+				if i.Verbose() {
+					log.Printf("%s Response: %s\n", i.Provider(), bs.String())
 				}
 				return
 			}

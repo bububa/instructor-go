@@ -140,12 +140,6 @@ func (i *Instructor) createStream(ctx context.Context, request anthropic.Message
 	}
 	go func() {
 		defer close(ch)
-		if i.Verbose() && !toolRequest {
-			defer func() {
-				fmt.Fprintf(sb, "%s Response: \n", i.Provider())
-				log.Println(sb.String())
-			}()
-		}
 		var usage anthropic.MessagesUsage
 		defer func() {
 			if response != nil {
@@ -153,6 +147,9 @@ func (i *Instructor) createStream(ctx context.Context, request anthropic.Message
 			}
 			if i.memory != nil && !toolRequest && sb.String() != "" {
 				i.memory.Add(anthropic.NewAssistantTextMessage(sb.String()))
+			}
+			if i.Verbose() && !toolRequest {
+				fmt.Fprintf(sb, "%s Response: \n", i.Provider())
 			}
 		}()
 		defer func() {
