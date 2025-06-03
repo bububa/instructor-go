@@ -233,6 +233,7 @@ func (i *Instructor) chat(ctx context.Context, cfg gemini.GenerateContentConfig,
 		}
 	}
 	if len(toolCalls) > 0 {
+		oldMessagesCount := len(request.History)
 		request.History = append(request.History, gemini.NewContentFromParts(functionCallParts, gemini.RoleModel))
 		parts := make([]*gemini.Part, 0, len(toolCalls))
 		for _, toolCall := range toolCalls {
@@ -244,6 +245,9 @@ func (i *Instructor) chat(ctx context.Context, cfg gemini.GenerateContentConfig,
 			parts = append(parts, part)
 		}
 		request.History = append(request.History, gemini.NewContentFromParts(parts, "function"))
+		if newMessagesCount := len(request.History); newMessagesCount > oldMessagesCount && i.memory != nil {
+			i.memory.Add(request.History[oldMessagesCount-1 : newMessagesCount]...)
+		}
 		responseText, err = i.chat(ctx, cfg, request, response)
 		if response != nil {
 			if response.UsageMetadata == nil {
@@ -257,6 +261,9 @@ func (i *Instructor) chat(ctx context.Context, cfg gemini.GenerateContentConfig,
 		if err != nil {
 			return "", err
 		}
+	}
+	if i.memory != nil && responseText != "" {
+		i.memory.Add(gemini.NewContentFromText(responseText, gemini.RoleModel))
 	}
 	return responseText, nil
 }

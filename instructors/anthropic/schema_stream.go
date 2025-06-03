@@ -151,6 +151,9 @@ func (i *Instructor) createStream(ctx context.Context, request anthropic.Message
 			if response != nil {
 				usage = response.Usage
 			}
+			if i.memory != nil && !toolRequest && sb.String() != "" {
+				i.memory.Add(anthropic.NewAssistantTextMessage(sb.String()))
+			}
 		}()
 		defer func() {
 			toolCalls := make([]anthropic.MessageContentToolUse, 0, len(toolCallMap))
@@ -167,6 +170,7 @@ func (i *Instructor) createStream(ctx context.Context, request anthropic.Message
 			if len(toolCalls) == 0 {
 				return
 			}
+			oldMessageCount := len(request.Messages)
 			request.Messages = append(request.Messages, anthropic.Message{
 				Role:    anthropic.RoleAssistant,
 				Content: contents,
@@ -200,6 +204,9 @@ func (i *Instructor) createStream(ctx context.Context, request anthropic.Message
 				Role:    anthropic.RoleUser,
 				Content: messageContents,
 			})
+			if newMessageCount := len(request.Messages); newMessageCount > oldMessageCount && i.memory != nil {
+				i.memory.Add(request.Messages[oldMessageCount-1 : newMessageCount]...)
+			}
 			tmpCh, err := i.createStream(ctx, request, response, true)
 			if err != nil {
 				ch <- instructor.StreamData{Type: instructor.ErrorStream, Err: err}
