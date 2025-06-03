@@ -199,7 +199,7 @@ func (i *Instructor) createStream(ctx context.Context, request openai.ChatComple
 				}
 			}
 			if newMessagesCount := len(request.Messages); newMessagesCount > oldMessagesCount && i.memory != nil {
-				i.memory.Add(request.Messages[oldMessagesCount-1 : newMessagesCount]...)
+				i.memory.Add(request.Messages[oldMessagesCount:newMessagesCount]...)
 			}
 			var usage openai.CompletionUsage
 			if response != nil {

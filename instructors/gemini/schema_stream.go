@@ -115,7 +115,7 @@ func (i *Instructor) stream(ctx context.Context, cfg gemini.GenerateContentConfi
 					return
 				}
 				if newMessagesCount := len(request.History); newMessagesCount > oldMessagesCount && i.memory != nil {
-					i.memory.Add(request.History[oldMessagesCount-1 : newMessagesCount]...)
+					i.memory.Add(request.History[oldMessagesCount:newMessagesCount]...)
 				}
 				for v := range tmpCh {
 					outCh <- v

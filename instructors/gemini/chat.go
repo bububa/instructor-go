@@ -246,7 +246,7 @@ func (i *Instructor) chat(ctx context.Context, cfg gemini.GenerateContentConfig,
 		}
 		request.History = append(request.History, gemini.NewContentFromParts(parts, "function"))
 		if newMessagesCount := len(request.History); newMessagesCount > oldMessagesCount && i.memory != nil {
-			i.memory.Add(request.History[oldMessagesCount-1 : newMessagesCount]...)
+			i.memory.Add(request.History[oldMessagesCount:newMessagesCount]...)
 		}
 		responseText, err = i.chat(ctx, cfg, request, response)
 		if response != nil {

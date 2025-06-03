@@ -205,7 +205,7 @@ func (i *Instructor) createStream(ctx context.Context, request anthropic.Message
 				Content: messageContents,
 			})
 			if newMessageCount := len(request.Messages); newMessageCount > oldMessageCount && i.memory != nil {
-				i.memory.Add(request.Messages[oldMessageCount-1 : newMessageCount]...)
+				i.memory.Add(request.Messages[oldMessageCount:newMessageCount]...)
 			}
 			tmpCh, err := i.createStream(ctx, request, response, true)
 			if err != nil {
