@@ -8,7 +8,7 @@ import (
 
 var validate *validator.Validate
 
-type Instructor[T any] interface {
+type Instructor interface {
 	Provider() Provider
 	Mode() Mode
 	SetEncoder(enc Encoder)
@@ -17,14 +17,13 @@ type Instructor[T any] interface {
 	StreamEncoder() StreamEncoder
 	SchemaNamer() SchemaNamer
 	MCPTools() []MCPTool
-	Memory() *Memory[T]
 	MaxRetries() int
 	Validate() bool
 	Verbose() bool
 }
 
 type ChatInstructor[T any, RESP any, HIS any] interface {
-	Instructor[HIS]
+	Instructor
 	Chat(
 		ctx context.Context,
 		request *T,
@@ -36,6 +35,7 @@ type ChatInstructor[T any, RESP any, HIS any] interface {
 		request *T,
 		response *RESP,
 	) (string, error)
+	Memory() *Memory[HIS]
 
 	// Usage counting
 	EmptyResponseWithUsageSum(*RESP, *UsageSum)
@@ -45,7 +45,7 @@ type ChatInstructor[T any, RESP any, HIS any] interface {
 }
 
 type SchemaStreamInstructor[T any, RESP any, HIS any] interface {
-	Instructor[HIS]
+	Instructor
 	SchemaStream(
 		ctx context.Context,
 		request *T,
@@ -57,16 +57,18 @@ type SchemaStreamInstructor[T any, RESP any, HIS any] interface {
 		request *T,
 		response *RESP,
 	) (<-chan StreamData, error)
+	Memory() *Memory[HIS]
 }
 
 type StreamInstructor[T any, RESP any, HIS any] interface {
-	Instructor[HIS]
+	Instructor
 	Stream(
 		ctx context.Context,
 		request *T,
 		responseType any,
 		response *RESP,
 	) (<-chan StreamData, error)
+	Memory() *Memory[HIS]
 }
 
 type StreamDataType int
