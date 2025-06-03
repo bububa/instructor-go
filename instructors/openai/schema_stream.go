@@ -151,6 +151,11 @@ func (i *Instructor) createStream(ctx context.Context, request openai.ChatComple
 		}
 		defer func() {
 			if len(toolCalls) == 0 {
+				if !toolRequest {
+					if txt := bs.String(); txt != "" {
+						i.memory.Add(openai.AssistantMessage(txt))
+					}
+				}
 				return
 			}
 			toolCallParams := make([]openai.ChatCompletionMessageToolCallParam, 0, len(toolCalls))
@@ -169,6 +174,7 @@ func (i *Instructor) createStream(ctx context.Context, request openai.ChatComple
 					ToolCalls: toolCallParams,
 				},
 			}
+			oldMessagesCount := len(request.Messages)
 			request.Messages = append(request.Messages, assistantMessage)
 			for _, toolCall := range toolCalls {
 				if call := i.CallMCP(ctx, &toolCall, &request); call != nil {
@@ -191,6 +197,9 @@ func (i *Instructor) createStream(ctx context.Context, request openai.ChatComple
 						return
 					}
 				}
+			}
+			if newMessagesCount := len(request.Messages); newMessagesCount > oldMessagesCount && i.memory != nil {
+				i.memory.Add(request.Messages[oldMessagesCount-1 : newMessagesCount]...)
 			}
 			var usage openai.CompletionUsage
 			if response != nil {

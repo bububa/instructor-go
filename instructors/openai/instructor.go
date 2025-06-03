@@ -1,7 +1,6 @@
 package openai
 
 import (
-	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/openai/openai-go"
 
 	"github.com/bububa/instructor-go"
@@ -10,7 +9,7 @@ import (
 type Instructor struct {
 	*openai.Client
 	instructor.Options
-	tools map[string]*mcp.Tool
+	memory *instructor.Memory[openai.ChatCompletionMessageParamUnion]
 }
 
 func (i *Instructor) SetClient(clt *openai.Client) {
@@ -31,5 +30,10 @@ func New(client *openai.Client, opts ...instructor.Option) *Instructor {
 	for _, opt := range opts {
 		opt(&i.Options)
 	}
+	i.memory = instructor.NewMemory[openai.ChatCompletionMessageParamUnion](10)
 	return i
+}
+
+func (i Instructor) Memory() *instructor.Memory[openai.ChatCompletionMessageParamUnion] {
+	return i.memory
 }

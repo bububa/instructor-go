@@ -133,15 +133,20 @@ func (i *Instructor) chatCompletionWrapper(ctx context.Context, request anthropi
 		if response != nil {
 			usage = response.Usage
 		}
-		request.Messages = append(request.Messages,
-			anthropic.Message{
+		newMessages := []anthropic.Message{
+			{
 				Role:    anthropic.RoleAssistant,
 				Content: resp.Content,
 			},
-			anthropic.Message{
+			{
 				Role:    anthropic.RoleUser,
 				Content: messageContents,
-			})
+			},
+		}
+		if i.memory != nil {
+			i.memory.Add(newMessages...)
+		}
+		request.Messages = append(request.Messages, newMessages...)
 		text, err := i.chatCompletionWrapper(ctx, request, response)
 		if response != nil {
 			response.Usage.InputTokens += usage.InputTokens
@@ -150,6 +155,7 @@ func (i *Instructor) chatCompletionWrapper(ctx context.Context, request anthropi
 		return text, err
 	}
 	text := resp.Content[0].Text
+	i.memory.Add(anthropic.NewAssistantTextMessage(*text))
 	return *text, nil
 }
 

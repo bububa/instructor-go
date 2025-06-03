@@ -232,12 +232,16 @@ func (i *Instructor) chatCompletionWrapper(ctx context.Context, request openai.C
 	}
 	toolCalls := resp.Choices[0].Message.ToolCalls
 	if len(toolCalls) > 0 {
+		oldMessagesCount := len(request.Messages)
 		request.Messages = append(request.Messages, resp.Choices[0].Message.ToParam())
 		for _, toolCall := range toolCalls {
 			if call := i.CallMCP(ctx, &toolCall, &request); call != nil && i.Verbose() {
 				bs, _ := json.MarshalIndent(call, "", "  ")
 				log.Printf("%s ToolCall Result: %s\n", i.Provider(), string(bs))
 			}
+		}
+		if newMessagesCount := len(request.Messages); newMessagesCount > oldMessagesCount && i.memory != nil {
+			i.memory.Add(request.Messages[oldMessagesCount-1 : newMessagesCount]...)
 		}
 		var usage openai.CompletionUsage
 		if response != nil {
@@ -253,6 +257,9 @@ func (i *Instructor) chatCompletionWrapper(ctx context.Context, request openai.C
 		return text, err
 	}
 	text := resp.Choices[0].Message.Content
+	if i.memory != nil {
+		i.memory.Add(openai.AssistantMessage(text))
+	}
 	return text, nil
 }
 

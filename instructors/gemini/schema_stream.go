@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"iter"
 	"log"
+	"strings"
 
 	"google.golang.org/api/iterator"
 	gemini "google.golang.org/genai"
@@ -106,11 +107,15 @@ func (i *Instructor) stream(ctx context.Context, cfg gemini.GenerateContentConfi
 		defer close(outCh)
 		var toolRequest Request
 		defer func() {
-			if len(toolRequest.History) > 0 {
+			oldMessagesCount := len(toolRequest.History)
+			if oldMessagesCount > 0 {
 				request.History = append(request.History, toolRequest.History...)
 				tmpCh, err := i.stream(ctx, cfg, request, response, true)
 				if err != nil {
 					return
+				}
+				if newMessagesCount := len(request.History); newMessagesCount > oldMessagesCount && i.memory != nil {
+					i.memory.Add(request.History[oldMessagesCount-1 : newMessagesCount]...)
 				}
 				for v := range tmpCh {
 					outCh <- v
@@ -136,8 +141,15 @@ func (i *Instructor) stream(ctx context.Context, cfg gemini.GenerateContentConfi
 		if err != nil {
 			return
 		}
+		var bs strings.Builder
 		for part := range ch {
+			if !reRun && part.Type == instructor.ContentStream {
+				bs.WriteString(part.Content)
+			}
 			outCh <- part
+		}
+		if text := bs.String(); text != "" && i.memory != nil {
+			i.memory.Add(gemini.NewContentFromText(text, gemini.RoleModel))
 		}
 	}()
 	return outCh, nil

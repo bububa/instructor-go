@@ -74,12 +74,12 @@ const (
 	ContentStream StreamDataType = iota
 	ThinkingStream
 	ToolCallStream
-  ErrorStream
+	ErrorStream
 )
 
 type StreamData struct {
 	Type     StreamDataType `json:"type,omitempty"`
 	Content  string         `json:"content,omitempty"`
 	ToolCall *ToolCall      `json:"tool_call,omitempty"`
-  Err      error          `json:"error,omitempty"`
+	Err      error          `json:"error,omitempty"`
 }
