@@ -162,9 +162,8 @@ func (i *Instructor) createStream(ctx context.Context, cfg *gemini.GenerateConte
 		defer close(ch)
 		sb := new(bytes.Buffer)
 		if i.Verbose() {
-			fmt.Fprintf(sb, "%s Response: \n", i.Provider())
 			defer func() {
-				log.Println(sb.String())
+				log.Printf("%s Response: %s\n", i.Provider(), sb.String())
 			}()
 		}
 		toolCallMap := make(map[int32]gemini.FunctionCall)
