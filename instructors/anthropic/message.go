@@ -68,6 +68,20 @@ func ConvertMessageFrom(src *instructor.Message, dist *anthropic.Message) error 
 		msg := anthropic.NewDocumentMessageContent(anthropic.NewMessageContentSource(anthropic.MessagesContentSourceTypeBase64, mediaTypeStr, v.Data), "", "", false)
 		list = append(list, msg)
 	}
+	for _, v := range src.Videos {
+		buf.Reset()
+		if err := DataFromURL(v.URL, &buf); err != nil {
+			continue
+		}
+		data := base64.StdEncoding.EncodeToString(buf.Bytes())
+		mediaTypeStr := "video/mp4"
+		mediaType, err := mimetype.DetectReader(&buf)
+		if err == nil {
+			mediaTypeStr = mediaType.String()
+		}
+		msg := anthropic.NewDocumentMessageContent(anthropic.NewMessageContentSource(anthropic.MessagesContentSourceTypeBase64, mediaTypeStr, data), "", "", false)
+		list = append(list, msg)
+	}
 	for _, v := range src.Images {
 		buf.Reset()
 		if err := DataFromURL(v.URL, &buf); err != nil {
@@ -123,6 +137,10 @@ func ConvertMessageTo(src *anthropic.Message, dist *instructor.Message) error {
 			if source := content.Source; source != nil {
 				if strings.HasPrefix(source.MediaType, "image") {
 					dist.Images = append(dist.Images, instructor.Image{
+						URL: fmt.Sprintf("data:%s;base64,%s", source.MediaType, source.Data),
+					})
+				} else if strings.HasPrefix(source.MediaType, "video") {
+					dist.Videos = append(dist.Videos, instructor.Video{
 						URL: fmt.Sprintf("data:%s;base64,%s", source.MediaType, source.Data),
 					})
 				} else if strings.HasPrefix(source.MediaType, "audio") {
