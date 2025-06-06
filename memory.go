@@ -41,6 +41,7 @@ type Message struct {
 	Images      []Image      `json:"images,omitempty"`
 	Audios      []Audio      `json:"audios,omitempty"`
 	Files       []File       `json:"files,omitempty"`
+	Videos      []Video      `json:"videos,omitempty"`
 	ToolUses    []ToolUse    `json:"tool_uses,omitempty"`
 	ToolResults []ToolResult `json:"tool_result,omitempty"`
 	ResponseID  string       `json:"response_id,omitempty"`
@@ -61,6 +62,11 @@ type File struct {
 	ID   string `json:"id,omitempty"`
 	Data string `json:"data,omitempty"`
 	Name string `json:"name,omitempty"`
+}
+
+type Video struct {
+	URL    string `json:"url,omitempty"`
+	Detail string `json:"detail,omitempty"`
 }
 
 type ToolUse struct {

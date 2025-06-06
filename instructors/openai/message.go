@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/openai/openai-go"
+	"github.com/openai/openai-go/shared/constant"
 
 	"github.com/bububa/instructor-go"
 )
@@ -74,6 +75,24 @@ func ConvertMessageFrom(src *instructor.Message) []openai.ChatCompletionMessageP
 			return msgs
 		}
 	}
+	if len(src.Videos) > 0 {
+		for _, v := range src.Videos {
+			videoParam := &openai.ChatCompletionContentPartImageParam{
+				Type: constant.ImageURL("video_url"),
+			}
+			videoParam.SetExtraFields(map[string]any{
+				"video_url": openai.ImageURL{
+					URL:    v.URL,
+					Detail: openai.ImageURLDetail(v.Detail),
+				},
+			})
+
+			part := openai.ChatCompletionContentPartUnionParam{
+				OfImageURL: videoParam,
+			}
+			list = append(list, part)
+		}
+	}
 	if len(src.Images) > 0 {
 		for _, v := range src.Images {
 			fp := openai.ImageContentPart(openai.ChatCompletionContentPartImageImageURLParam{
@@ -124,6 +143,12 @@ func ConvertMessageTo(src *openai.ChatCompletionMessageParamUnion, dist *instruc
 						Format: v.InputAudio.Format,
 					})
 				} else if v := part.OfImageURL; v != nil {
+					if v.Type == constant.ImageURL("video_url") {
+						dist.Videos = append(dist.Videos, instructor.Video{
+							URL:    v.ImageURL.URL,
+							Detail: v.ImageURL.Detail,
+						})
+					}
 					dist.Images = append(dist.Images, instructor.Image{
 						URL:    v.ImageURL.URL,
 						Detail: v.ImageURL.Detail,

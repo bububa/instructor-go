@@ -80,6 +80,20 @@ func ConvertMessageFrom(src *instructor.Message, dist *gemini.Content) error {
 		part := gemini.NewPartFromBytes(data, mediaTypeStr)
 		list = append(list, part)
 	}
+	for _, v := range src.Videos {
+		buf.Reset()
+		if err := DataFromURL(v.URL, &buf); err != nil {
+			continue
+		}
+		bs := buf.Bytes()
+		mediaTypeStr := "video/mp4"
+		mediaType, err := mimetype.DetectReader(&buf)
+		if err == nil {
+			mediaTypeStr = mediaType.String()
+		}
+		part := gemini.NewPartFromBytes(bs, mediaTypeStr)
+		list = append(list, part)
+	}
 	for _, v := range src.Images {
 		buf.Reset()
 		if err := DataFromURL(v.URL, &buf); err != nil {
@@ -136,6 +150,10 @@ func ConvertMessageTo(src *gemini.Content, dist *instructor.Message) {
 					dist.Images = append(dist.Images, instructor.Image{
 						URL: source.FileURI,
 					})
+				} else if strings.HasPrefix(source.MIMEType, "video") {
+					dist.Videos = append(dist.Videos, instructor.Video{
+						URL: source.FileURI,
+					})
 				} else if strings.HasPrefix(source.MIMEType, "audio") {
 					buf.Reset()
 					if err := DataFromURL(source.FileURI, &buf); err == nil {
@@ -154,6 +172,30 @@ func ConvertMessageTo(src *gemini.Content, dist *instructor.Message) {
 							Name: source.DisplayName,
 						})
 					}
+				}
+			}
+			if source := part.InlineData; source != nil {
+				data := base64.StdEncoding.EncodeToString(source.Data)
+				uri := fmt.Sprintf("data:%s;base64,%s", source.MIMEType, data)
+				if strings.HasPrefix(source.MIMEType, "image") {
+					dist.Images = append(dist.Images, instructor.Image{
+						URL: uri,
+					})
+				} else if strings.HasPrefix(source.MIMEType, "video") {
+					dist.Videos = append(dist.Videos, instructor.Video{
+						URL: uri,
+					})
+				} else if strings.HasPrefix(source.MIMEType, "audio") {
+					data := base64.StdEncoding.EncodeToString(buf.Bytes())
+					dist.Audios = append(dist.Audios, instructor.Audio{
+						Data:   data,
+						Format: uri,
+					})
+				} else {
+					dist.Files = append(dist.Files, instructor.File{
+						Data: data,
+						Name: source.DisplayName,
+					})
 				}
 			}
 			if part.Text != "" {
