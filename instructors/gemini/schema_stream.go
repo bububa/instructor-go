@@ -88,8 +88,13 @@ func (i *Instructor) stream(ctx context.Context, cfg gemini.GenerateContentConfi
 			ThinkingBudget:  internal.ToPtr(int32(thinkingConfig.Budget)),
 		}
 	}
+	content := gemini.NewContentFromParts(request.Parts, gemini.RoleUser)
+	memory := i.Memory()
 	if !reRun {
 		i.InjectMCP(ctx, &cfg)
+		var msg instructor.Message
+		ConvertMessageTo(content, &msg)
+		memory.Add(msg)
 	}
 
 	if i.Verbose() {
@@ -100,7 +105,7 @@ func (i *Instructor) stream(ctx context.Context, cfg gemini.GenerateContentConfi
 	}
 	contents := make([]*gemini.Content, len(request.History)+1)
 	contents = append(contents, request.History...)
-	contents = append(contents, gemini.NewContentFromParts(request.Parts, gemini.RoleUser))
+	contents = append(contents, content)
 	iter := i.Models.GenerateContentStream(ctx, request.Model, contents, &cfg)
 	outCh := make(chan instructor.StreamData)
 	go func() {
@@ -114,8 +119,12 @@ func (i *Instructor) stream(ctx context.Context, cfg gemini.GenerateContentConfi
 				if err != nil {
 					return
 				}
-				if newMessagesCount := len(request.History); newMessagesCount > oldMessagesCount && i.memory != nil {
-					i.memory.Add(request.History[oldMessagesCount:newMessagesCount]...)
+				if newMessagesCount := len(request.History); newMessagesCount > oldMessagesCount && memory != nil {
+					for _, v := range request.History[oldMessagesCount:newMessagesCount] {
+						var msg instructor.Message
+						ConvertMessageTo(v, &msg)
+						memory.Add(msg)
+					}
 				}
 				for v := range tmpCh {
 					outCh <- v
@@ -148,8 +157,11 @@ func (i *Instructor) stream(ctx context.Context, cfg gemini.GenerateContentConfi
 			}
 			outCh <- part
 		}
-		if text := bs.String(); text != "" && i.memory != nil {
-			i.memory.Add(gemini.NewContentFromText(text, gemini.RoleModel))
+		if text := bs.String(); text != "" && memory != nil {
+			memory.Add(instructor.Message{
+				Role: instructor.AssistantRole,
+				Text: text,
+			})
 		}
 	}()
 	return outCh, nil

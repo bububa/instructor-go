@@ -28,12 +28,17 @@ func (i *Instructor) Stream(
 				i.SetEncoder(enc)
 			}
 		}
+		var (
+			hasSystem bool
+			lastIdx   = -1
+		)
 		for idx, msg := range req.Messages {
 			if system := msg.OfSystem; system != nil {
 				bs := i.Encoder().Context()
 				if bs != nil {
-					system.Content.OfString = openai.String(fmt.Sprintf("%s\n\n#OUTPUT SCHEMA\n%s", system.Content.OfString.String(), string(bs)))
+					system.Content.OfString = openai.String(fmt.Sprintf("%s\n\n#OUTPUT SCHEMA\n%s", system.Content.OfString.Value, string(bs)))
 					req.Messages[idx] = msg
+					hasSystem = true
 				}
 			}
 		}
@@ -54,7 +59,7 @@ func (i *Instructor) Stream(
 				schemaJSON, _ := json.Marshal(schemaWrapper)
 				schemaRaw := json.RawMessage(schemaJSON)
 
-				request.ResponseFormat = openai.ChatCompletionNewParamsResponseFormatUnion{
+				req.ResponseFormat = openai.ChatCompletionNewParamsResponseFormatUnion{
 					OfJSONSchema: &openai.ResponseFormatJSONSchemaParam{
 						JSONSchema: openai.ResponseFormatJSONSchemaJSONSchemaParam{
 							Name:        structName,
@@ -65,6 +70,12 @@ func (i *Instructor) Stream(
 					},
 				}
 			} else {
+				if !hasSystem && lastIdx >= 0 {
+					bs := i.StreamEncoder().Context()
+					if msg := req.Messages[lastIdx].OfUser; msg != nil {
+						req.Messages[lastIdx].OfUser.Content.OfString = openai.String(fmt.Sprintf("%s\n\n#OUTPUT SCHEMA\n%s", msg.Content.OfString.Value, string(bs)))
+					}
+				}
 				req.ResponseFormat = openai.ChatCompletionNewParamsResponseFormatUnion{
 					OfJSONObject: new(openai.ResponseFormatJSONObjectParam),
 				}

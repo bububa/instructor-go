@@ -63,9 +63,16 @@ func (i *Instructor) chatToolCall(ctx context.Context, request Request, response
 	}
 
 	var (
-		resp *gemini.GenerateContentResponse
-		err  error
+		resp    *gemini.GenerateContentResponse
+		err     error
+		memory  = i.Memory()
+		content = gemini.NewContentFromParts(request.Parts, gemini.RoleUser)
 	)
+	if memory != nil {
+		var msg instructor.Message
+		ConvertMessageTo(content, &msg)
+		memory.Add(msg)
+	}
 	if len(request.History) > 0 {
 		cs, err := i.Chats.Create(ctx, request.Model, &cfg, request.History)
 		if err != nil {
@@ -77,12 +84,7 @@ func (i *Instructor) chatToolCall(ctx context.Context, request Request, response
 		}
 		resp, err = cs.SendMessage(ctx, parts...)
 	} else {
-		resp, err = i.Models.GenerateContent(ctx, request.Model, []*gemini.Content{
-			{
-				Parts: request.Parts,
-				Role:  "user",
-			},
-		}, &cfg)
+		resp, err = i.Models.GenerateContent(ctx, request.Model, []*gemini.Content{content}, &cfg)
 	}
 
 	if err != nil {
@@ -110,6 +112,21 @@ func (i *Instructor) chatToolCall(ctx context.Context, request Request, response
 	if numTools < 1 {
 		i.EmptyResponseWithResponseUsage(response, resp)
 		return "", errors.New("received no tool calls from model, expected at least 1")
+	}
+	if memory != nil {
+		calls := make([]instructor.ToolUse, 0, numTools)
+		for _, v := range toolCalls {
+			bs, _ := json.Marshal(v.Args)
+			calls = append(calls, instructor.ToolUse{
+				ID:        v.ID,
+				Name:      v.Name,
+				Arguments: string(bs),
+			})
+		}
+		memory.Add(instructor.Message{
+			Role:     instructor.AssistantRole,
+			ToolUses: calls,
+		})
 	}
 
 	if numTools == 1 {
@@ -166,6 +183,11 @@ func (i *Instructor) completion(ctx context.Context, request Request, response *
 		cfg.ResponseSchema = new(gemini.Schema)
 		convertSchema(schema.Schema, cfg.ResponseSchema)
 	}
+	if memory := i.Memory(); memory != nil {
+		var msg instructor.Message
+		ConvertMessageTo(gemini.NewContentFromParts(request.Parts, gemini.RoleUser), &msg)
+		memory.Add(msg)
+	}
 	return i.chat(ctx, cfg, request, response)
 }
 
@@ -217,6 +239,7 @@ func (i *Instructor) chat(ctx context.Context, cfg gemini.GenerateContentConfig,
 		toolCalls         []gemini.FunctionCall
 		functionCallParts []*gemini.Part
 		responseText      string
+		memory            = i.Memory()
 	)
 	for _, cand := range resp.Candidates {
 		if cand.Content == nil {
@@ -245,8 +268,12 @@ func (i *Instructor) chat(ctx context.Context, cfg gemini.GenerateContentConfig,
 			parts = append(parts, part)
 		}
 		request.History = append(request.History, gemini.NewContentFromParts(parts, "function"))
-		if newMessagesCount := len(request.History); newMessagesCount > oldMessagesCount && i.memory != nil {
-			i.memory.Add(request.History[oldMessagesCount:newMessagesCount]...)
+		if newMessagesCount := len(request.History); newMessagesCount > oldMessagesCount && memory != nil {
+			for _, v := range request.History[oldMessagesCount:newMessagesCount] {
+				var msg instructor.Message
+				ConvertMessageTo(v, &msg)
+				memory.Add(msg)
+			}
 		}
 		responseText, err = i.chat(ctx, cfg, request, response)
 		if response != nil {
@@ -262,8 +289,11 @@ func (i *Instructor) chat(ctx context.Context, cfg gemini.GenerateContentConfig,
 			return "", err
 		}
 	}
-	if i.memory != nil && responseText != "" {
-		i.memory.Add(gemini.NewContentFromText(responseText, gemini.RoleModel))
+	if memory != nil && responseText != "" {
+		memory.Add(instructor.Message{
+			Role: instructor.AssistantRole,
+			Text: responseText,
+		})
 	}
 	return responseText, nil
 }

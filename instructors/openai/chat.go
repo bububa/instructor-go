@@ -90,6 +90,13 @@ func (i *Instructor) chatToolCall(ctx context.Context, request openai.ChatComple
 		log.Printf("%s Request: %s\n", i.Provider(), string(bs))
 	}
 
+	memory := i.Memory()
+	if memory != nil && len(request.Messages) > 0 {
+		var msg instructor.Message
+		if err := ConvertMessageTo(&request.Messages[len(request.Messages)-1], &msg); err == nil {
+			memory.Add(msg)
+		}
+	}
 	resp, err := i.Client.Chat.Completions.New(ctx, request)
 	if err != nil {
 		return "", err
@@ -100,6 +107,20 @@ func (i *Instructor) chatToolCall(ctx context.Context, request openai.ChatComple
 		toolCalls = choice.Message.ToolCalls
 
 		if len(toolCalls) >= 1 {
+
+			if memory != nil {
+				msg := instructor.Message{
+					Role: instructor.AssistantRole,
+					ToolUses: []instructor.ToolUse{
+						{
+							ID:        toolCalls[0].ID,
+							Name:      toolCalls[0].Function.Name,
+							Arguments: toolCalls[0].Function.Arguments,
+						},
+					},
+				}
+				memory.Add(msg)
+			}
 			break
 		}
 	}
@@ -152,16 +173,20 @@ func (i *Instructor) chatJSON(ctx context.Context, request openai.ChatCompletion
 	}
 	structName := schema.NameFromRef()
 
-	var hasSystem bool
+	var (
+		hasSystem bool
+		lastIdx   = -1
+	)
 	for idx, msg := range request.Messages {
 		if system := msg.OfSystem; system != nil {
 			bs := i.Encoder().Context()
 			if bs != nil {
-				system.Content.OfString = openai.String(fmt.Sprintf("%s\n\n#OUTPUT SCHEMA\n%s", system.Content.OfString.String(), string(bs)))
+				system.Content.OfString = openai.String(fmt.Sprintf("%s\n\n#OUTPUT SCHEMA\n%s", system.Content.OfString.Value, string(bs)))
 				request.Messages[idx] = msg
 				hasSystem = true
 			}
 		}
+		lastIdx = idx
 	}
 
 	if i.Mode() == instructor.ModeJSONSchema || i.Mode() == instructor.ModeJSONStrict {
@@ -176,12 +201,21 @@ func (i *Instructor) chatJSON(ctx context.Context, request openai.ChatCompletion
 			},
 		}
 	} else {
-		if !hasSystem {
+		if !hasSystem && lastIdx >= 0 {
 			bs := i.Encoder().Context()
-			request.Messages = append(request.Messages, openai.UserMessage(fmt.Sprintf("#OUTPUT SCHEMA\n%s", string(bs))))
+			if msg := request.Messages[lastIdx].OfUser; msg != nil {
+				request.Messages[lastIdx].OfUser.Content.OfString = openai.String(fmt.Sprintf("%s\n\n#OUTPUT SCHEMA\n%s", msg.Content.OfString.Value, string(bs)))
+			}
 		}
 		request.ResponseFormat = openai.ChatCompletionNewParamsResponseFormatUnion{
 			OfJSONObject: new(openai.ResponseFormatJSONObjectParam),
+		}
+	}
+	memory := i.Memory()
+	if memory != nil && lastIdx >= 0 {
+		var msg instructor.Message
+		if err := ConvertMessageTo(&request.Messages[lastIdx], &msg); err == nil {
+			memory.Add(msg)
 		}
 	}
 
@@ -201,13 +235,22 @@ func (i *Instructor) chatJSON(ctx context.Context, request openai.ChatCompletion
 }
 
 func (i *Instructor) chatCompletion(ctx context.Context, request openai.ChatCompletionNewParams, response *openai.ChatCompletion) (string, error) {
+	lastIdx := -1
 	for idx, msg := range request.Messages {
 		if system := msg.OfSystem; system != nil {
 			bs := i.Encoder().Context()
 			if bs != nil {
-				system.Content.OfString = openai.String(fmt.Sprintf("%s\n\n#OUTPUT SCHEMA\n%s", system.Content.OfString.String(), string(bs)))
+				system.Content.OfString = openai.String(fmt.Sprintf("%s\n\n#OUTPUT SCHEMA\n%s", system.Content.OfString.Value, string(bs)))
 				request.Messages[idx] = msg
 			}
+		}
+		lastIdx = idx
+	}
+	memory := i.Memory()
+	if memory != nil && lastIdx >= 0 {
+		var msg instructor.Message
+		if err := ConvertMessageTo(&request.Messages[lastIdx], &msg); err == nil {
+			memory.Add(msg)
 		}
 	}
 	// request.Messages = internal.Prepend(request.Messages, *createJSONMessage(schema))
@@ -220,6 +263,7 @@ func (i *Instructor) chatCompletionWrapper(ctx context.Context, request openai.C
 		bs, _ := request.MarshalJSON()
 		log.Printf("%s Request: %s\n", i.Provider(), string(bs))
 	}
+	memory := i.Memory()
 	resp, err := i.Client.Chat.Completions.New(ctx, request)
 	if err != nil {
 		return "", err
@@ -240,8 +284,13 @@ func (i *Instructor) chatCompletionWrapper(ctx context.Context, request openai.C
 				log.Printf("%s ToolCall Result: %s\n", i.Provider(), string(bs))
 			}
 		}
-		if newMessagesCount := len(request.Messages); newMessagesCount > oldMessagesCount && i.memory != nil {
-			i.memory.Add(request.Messages[oldMessagesCount:newMessagesCount]...)
+		if newMessagesCount := len(request.Messages); newMessagesCount > oldMessagesCount && memory != nil {
+			for _, v := range request.Messages[oldMessagesCount:newMessagesCount] {
+				var msg instructor.Message
+				if err := ConvertMessageTo(&v, &msg); err == nil {
+					memory.Add(msg)
+				}
+			}
 		}
 		var usage openai.CompletionUsage
 		if response != nil {
@@ -257,8 +306,11 @@ func (i *Instructor) chatCompletionWrapper(ctx context.Context, request openai.C
 		return text, err
 	}
 	text := resp.Choices[0].Message.Content
-	if i.memory != nil {
-		i.memory.Add(openai.AssistantMessage(text))
+	if memory != nil {
+		memory.Add(instructor.Message{
+			Role: instructor.AssistantRole,
+			Text: text,
+		})
 	}
 	return text, nil
 }

@@ -81,8 +81,15 @@ func (i *Instructor) createStream(ctx context.Context, request anthropic.Message
 			request.Thinking.Type = anthropic.ThinkingTypeDisabled
 		}
 	}
+	memory := i.Memory()
 	if !toolRequest {
 		i.InjectMCP(ctx, &request)
+		if memory != nil && len(request.Messages) > 0 {
+			var msg instructor.Message
+			if err := ConvertMessageTo(&request.Messages[len(request.Messages)-1], &msg); err == nil {
+				memory.Add(msg)
+			}
+		}
 	}
 	ch := make(chan instructor.StreamData)
 	sb := new(bytes.Buffer)
@@ -145,14 +152,16 @@ func (i *Instructor) createStream(ctx context.Context, request anthropic.Message
 			if response != nil {
 				usage = response.Usage
 			}
-			if i.memory != nil && !toolRequest && sb.String() != "" {
-				i.memory.Add(anthropic.NewAssistantTextMessage(sb.String()))
+			txt := sb.String()
+			if memory != nil && txt != "" {
+				memory.Add(instructor.Message{
+					Role: instructor.AssistantRole,
+					Text: txt,
+				})
 			}
 			if i.Verbose() && !toolRequest {
-				fmt.Fprintf(sb, "%s Response: \n", i.Provider())
+				fmt.Printf("%s Response: %s\n", i.Provider(), txt)
 			}
-		}()
-		defer func() {
 			toolCalls := make([]anthropic.MessageContentToolUse, 0, len(toolCallMap))
 			contents := make([]anthropic.MessageContent, 0, len(toolCallMap))
 			for idx, toolCall := range toolCallMap {
@@ -201,8 +210,13 @@ func (i *Instructor) createStream(ctx context.Context, request anthropic.Message
 				Role:    anthropic.RoleUser,
 				Content: messageContents,
 			})
-			if newMessageCount := len(request.Messages); newMessageCount > oldMessageCount && i.memory != nil {
-				i.memory.Add(request.Messages[oldMessageCount:newMessageCount]...)
+			if newMessageCount := len(request.Messages); newMessageCount > oldMessageCount && memory != nil {
+				for _, v := range request.Messages[oldMessageCount:newMessageCount] {
+					var msg instructor.Message
+					if err := ConvertMessageTo(&v, &msg); err == nil {
+						memory.Add(msg)
+					}
+				}
 			}
 			tmpCh, err := i.createStream(ctx, request, response, true)
 			if err != nil {
