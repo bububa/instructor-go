@@ -48,13 +48,19 @@ func (i *Instructor) chatToolCallStream(ctx context.Context, request openai.Chat
 }
 
 func (i *Instructor) chatSchemaStream(ctx context.Context, request openai.ChatCompletionNewParams, response *openai.ChatCompletion) (<-chan instructor.StreamData, error) {
+	var (
+		hasSystem bool
+		lastIdx   = -1
+	)
 	for idx, msg := range request.Messages {
 		if system := msg.OfSystem; system != nil {
 			if bs := i.StreamEncoder().Context(); bs != nil {
-				system.Content.OfString = openai.String(fmt.Sprintf("%s\n\n#OUTPUT SCHEMA\n%s", system.Content.OfString.String(), string(bs)))
+				system.Content.OfString = openai.String(fmt.Sprintf("%s\n\n#OUTPUT SCHEMA\n%s", system.Content.OfString.Value, string(bs)))
 				request.Messages[idx] = msg
+				hasSystem = true
 			}
 		}
+		lastIdx = idx
 	}
 	// Set JSON mode
 	if enc, ok := i.StreamEncoder().(*jsonenc.StreamEncoder); ok {
@@ -85,6 +91,12 @@ func (i *Instructor) chatSchemaStream(ctx context.Context, request openai.ChatCo
 				},
 			}
 		} else {
+			if !hasSystem && lastIdx >= 0 {
+				bs := i.StreamEncoder().Context()
+				if msg := request.Messages[lastIdx].OfUser; msg != nil {
+					request.Messages[lastIdx].OfUser.Content.OfString = openai.String(fmt.Sprintf("%s\n\n#OUTPUT SCHEMA\n%s", msg.Content.OfString.Value, string(bs)))
+				}
+			}
 			request.ResponseFormat = openai.ChatCompletionNewParamsResponseFormatUnion{
 				OfJSONObject: new(openai.ResponseFormatJSONObjectParam),
 			}
@@ -98,8 +110,15 @@ func (i *Instructor) chatSchemaStream(ctx context.Context, request openai.ChatCo
 }
 
 func (i *Instructor) createStream(ctx context.Context, request openai.ChatCompletionNewParams, response *openai.ChatCompletion, toolRequest bool) (<-chan instructor.StreamData, error) {
+	memory := i.Memory()
 	if !toolRequest {
 		i.InjectMCP(ctx, &request)
+		if memory != nil {
+			var msg instructor.Message
+			if err := ConvertMessageTo(&request.Messages[len(request.Messages)-1], &msg); err == nil {
+				memory.Add(msg)
+			}
+		}
 	}
 	request.StreamOptions.IncludeUsage = openai.Bool(true)
 	extraFields := request.ExtraFields()
@@ -143,19 +162,17 @@ func (i *Instructor) createStream(ctx context.Context, request openai.ChatComple
 		defer close(ch)
 		bs := new(bytes.Buffer)
 		var toolCalls []openai.ChatCompletionMessageToolCall
-		if i.Verbose() && !toolRequest {
-			defer func() {
-			}()
-		}
 		defer func() {
 			if len(toolCalls) == 0 {
-				if !toolRequest {
-					if txt := bs.String(); txt != "" {
-						i.memory.Add(openai.AssistantMessage(txt))
-					}
+				txt := bs.String()
+				if txt != "" {
+					memory.Add(instructor.Message{
+						Role: instructor.AssistantRole,
+						Text: txt,
+					})
 				}
 				if i.Verbose() {
-					log.Printf("%s Response: %s\n", i.Provider(), bs.String())
+					log.Printf("%s Response: %s\n", i.Provider(), txt)
 				}
 				return
 			}
@@ -199,8 +216,13 @@ func (i *Instructor) createStream(ctx context.Context, request openai.ChatComple
 					}
 				}
 			}
-			if newMessagesCount := len(request.Messages); newMessagesCount > oldMessagesCount && i.memory != nil {
-				i.memory.Add(request.Messages[oldMessagesCount:newMessagesCount]...)
+			if newMessagesCount := len(request.Messages); newMessagesCount > oldMessagesCount && memory != nil {
+				for _, v := range request.Messages[oldMessagesCount:newMessagesCount] {
+					var msg instructor.Message
+					if err := ConvertMessageTo(&v, &msg); err == nil {
+						memory.Add(msg)
+					}
+				}
 			}
 			var usage openai.CompletionUsage
 			if response != nil {

@@ -17,12 +17,13 @@ type Instructor interface {
 	StreamEncoder() StreamEncoder
 	SchemaNamer() SchemaNamer
 	MCPTools() []MCPTool
+	Memory() *Memory
 	MaxRetries() int
 	Validate() bool
 	Verbose() bool
 }
 
-type ChatInstructor[T any, RESP any, HIS any] interface {
+type ChatInstructor[T any, RESP any] interface {
 	Instructor
 	Chat(
 		ctx context.Context,
@@ -35,7 +36,6 @@ type ChatInstructor[T any, RESP any, HIS any] interface {
 		request *T,
 		response *RESP,
 	) (string, error)
-	Memory() *Memory[HIS]
 
 	// Usage counting
 	EmptyResponseWithUsageSum(*RESP, *UsageSum)
@@ -44,7 +44,7 @@ type ChatInstructor[T any, RESP any, HIS any] interface {
 	CountUsageFromResponse(response *RESP, usage *UsageSum)
 }
 
-type SchemaStreamInstructor[T any, RESP any, HIS any] interface {
+type SchemaStreamInstructor[T any, RESP any] interface {
 	Instructor
 	SchemaStream(
 		ctx context.Context,
@@ -57,10 +57,9 @@ type SchemaStreamInstructor[T any, RESP any, HIS any] interface {
 		request *T,
 		response *RESP,
 	) (<-chan StreamData, error)
-	Memory() *Memory[HIS]
 }
 
-type StreamInstructor[T any, RESP any, HIS any] interface {
+type StreamInstructor[T any, RESP any] interface {
 	Instructor
 	Stream(
 		ctx context.Context,
@@ -68,7 +67,6 @@ type StreamInstructor[T any, RESP any, HIS any] interface {
 		responseType any,
 		response *RESP,
 	) (<-chan StreamData, error)
-	Memory() *Memory[HIS]
 }
 
 type StreamDataType int

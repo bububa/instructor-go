@@ -21,6 +21,7 @@ type Options struct {
 	maxRetries     int
 	thinkingConfig *ThinkingConfig
 	mcpTools       []MCPTool
+	memory         *Memory
 	extraBody      map[string]any
 	schemaNamer    SchemaNamer
 	validate       bool
@@ -101,6 +102,12 @@ func WithMCPTools(tools ...MCPTool) Option {
 	}
 }
 
+func WithMemory(v *Memory) Option {
+	return func(o *Options) {
+		o.memory = v
+	}
+}
+
 func WithValidation() Option {
 	return func(o *Options) {
 		o.validate = true
@@ -147,6 +154,10 @@ func (i Options) ExtraBody() map[string]any {
 
 func (i Options) MCPTools() []MCPTool {
 	return i.mcpTools
+}
+
+func (i Options) Memory() *Memory {
+	return i.memory
 }
 
 func (i Options) SchemaNamer() SchemaNamer {

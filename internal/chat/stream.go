@@ -10,7 +10,7 @@ import (
 
 const WRAPPER_END = `"items": [`
 
-func SchemaStreamHandler[T any, RESP any, HIS any](i instructor.SchemaStreamInstructor[T, RESP, HIS], ctx context.Context, request *T, responseType any, resp *RESP) (<-chan any, <-chan instructor.StreamData, error) {
+func SchemaStreamHandler[T any, RESP any](i instructor.SchemaStreamInstructor[T, RESP], ctx context.Context, request *T, responseType any, resp *RESP) (<-chan any, <-chan instructor.StreamData, error) {
 	var (
 		isToolCall = i.Mode() == instructor.ModeToolCall || i.Mode() == instructor.ModeToolCallStrict
 		enc        = i.StreamEncoder()

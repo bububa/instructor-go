@@ -51,7 +51,7 @@ func (r *Receipt) Validate() error {
 	return nil
 }
 
-func extract(ctx context.Context, client instructor.ChatInstructor[openai.ChatCompletionNewParams, openai.ChatCompletion, openai.ChatCompletionMessageParamUnion], url string) (*Receipt, error) {
+func extract(ctx context.Context, client instructor.ChatInstructor[openai.ChatCompletionNewParams, openai.ChatCompletion], url string) (*Receipt, error) {
 	var receipt Receipt
 	err := client.Chat(
 		ctx,

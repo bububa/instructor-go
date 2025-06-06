@@ -60,6 +60,13 @@ func (i *Instructor) completionToolCall(ctx context.Context, request anthropic.M
 		bs, _ := json.MarshalIndent(request, "", "  ")
 		log.Printf("%s Request: %s\n", i.Provider(), string(bs))
 	}
+	memory := i.Memory()
+	if memory != nil && len(request.Messages) > 0 {
+		var msg instructor.Message
+		if err := ConvertMessageTo(&request.Messages[len(request.Messages)-1], &msg); err == nil {
+			memory.Add(msg)
+		}
+	}
 
 	resp, err := i.CreateMessages(ctx, request)
 	if err != nil {
@@ -81,6 +88,18 @@ func (i *Instructor) completionToolCall(ctx context.Context, request anthropic.M
 		if response != nil {
 			*response = resp
 		}
+		if memory != nil {
+			memory.Add(instructor.Message{
+				Role: instructor.AssistantRole,
+				ToolUses: []instructor.ToolUse{
+					{
+						ID:        c.ID,
+						Name:      c.Name,
+						Arguments: string(toolInput),
+					},
+				},
+			})
+		}
 		return string(toolInput), nil
 	}
 
@@ -95,6 +114,14 @@ func (i *Instructor) completion(ctx context.Context, request anthropic.MessagesR
 			request.System = string(bs)
 		} else {
 			request.System = fmt.Sprintf("%s\n\n#OUTPUT SCHEMA\n%s", request.System, bs)
+		}
+	}
+	if memory := i.Memory(); memory != nil {
+		if len(request.Messages) > 0 {
+			var msg instructor.Message
+			if err := ConvertMessageTo(&request.Messages[len(request.Messages)-1], &msg); err == nil {
+				memory.Add(msg)
+			}
 		}
 	}
 	return i.chatCompletionWrapper(ctx, request, response)
@@ -117,6 +144,7 @@ func (i *Instructor) chatCompletionWrapper(ctx context.Context, request anthropi
 	if response != nil {
 		*response = resp
 	}
+	memory := i.Memory()
 	var messageContents []anthropic.MessageContent
 	for _, c := range resp.Content {
 		if c.Type == anthropic.MessagesContentTypeToolUse {
@@ -143,8 +171,13 @@ func (i *Instructor) chatCompletionWrapper(ctx context.Context, request anthropi
 				Content: messageContents,
 			},
 		}
-		if i.memory != nil {
-			i.memory.Add(newMessages...)
+		if memory != nil {
+			for _, v := range newMessages {
+				var msg instructor.Message
+				if err := ConvertMessageTo(&v, &msg); err == nil {
+					memory.Add(msg)
+				}
+			}
 		}
 		request.Messages = append(request.Messages, newMessages...)
 		text, err := i.chatCompletionWrapper(ctx, request, response)
@@ -154,9 +187,16 @@ func (i *Instructor) chatCompletionWrapper(ctx context.Context, request anthropi
 		}
 		return text, err
 	}
-	text := resp.Content[0].Text
-	i.memory.Add(anthropic.NewAssistantTextMessage(*text))
-	return *text, nil
+	if text := resp.Content[0].Text; text != nil {
+		if memory != nil && *text != "" {
+			memory.Add(instructor.Message{
+				Role: instructor.AssistantRole,
+				Text: *text,
+			})
+		}
+		return *text, nil
+	}
+	return "", nil
 }
 
 func (i *Instructor) EmptyResponseWithUsageSum(ret *anthropic.MessagesResponse, usage *instructor.UsageSum) {
