@@ -15,6 +15,10 @@ func (i *Instructor) SetClient(clt *openai.Client) {
 	i.Client = clt
 }
 
+func (i *Instructor) SetMemory(m *instructor.Memory) {
+	instructor.WithMemory(m)(&i.Options)
+}
+
 var (
 	_ instructor.ChatInstructor[openai.ChatCompletionNewParams, openai.ChatCompletion]         = (*Instructor)(nil)
 	_ instructor.SchemaStreamInstructor[openai.ChatCompletionNewParams, openai.ChatCompletion] = (*Instructor)(nil)
