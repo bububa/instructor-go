@@ -32,6 +32,9 @@ func New(client *gemini.Client, opts ...instructor.Option) *Instructor {
 	for _, opt := range opts {
 		opt(&i.Options)
 	}
-	instructor.WithProvider(instructor.ProviderGemini)
+	if i.Memory() == nil {
+		i.SetMemory(instructor.NewMemory(-1))
+	}
+	instructor.WithProvider(instructor.ProviderGemini)(&i.Options)
 	return i
 }

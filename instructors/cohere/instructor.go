@@ -26,9 +26,12 @@ func New(client *cohereClient.Client, opts ...instructor.Option) *Instructor {
 	i := &Instructor{
 		Client: client,
 	}
-	instructor.WithProvider(instructor.ProviderCohere)
 	for _, opt := range opts {
 		opt(&i.Options)
 	}
+	if i.Memory() == nil {
+		i.SetMemory(instructor.NewMemory(-1))
+	}
+	instructor.WithProvider(instructor.ProviderCohere)(&i.Options)
 	return i
 }

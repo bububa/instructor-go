@@ -29,9 +29,12 @@ func New(client *openai.Client, opts ...instructor.Option) *Instructor {
 	i := &Instructor{
 		Client: client,
 	}
-	instructor.WithProvider(instructor.ProviderOpenAI)
 	for _, opt := range opts {
 		opt(&i.Options)
+	}
+	instructor.WithProvider(instructor.ProviderOpenAI)(&i.Options)
+	if i.Memory() == nil {
+		i.SetMemory(instructor.NewMemory(-1))
 	}
 	return i
 }
