@@ -15,6 +15,10 @@ func (i *Instructor) SetClient(clt *gemini.Client) {
 	i.Client = clt
 }
 
+func (i *Instructor) SetMemory(m *instructor.Memory) {
+	instructor.WithMemory(m)(&i.Options)
+}
+
 var (
 	_ instructor.ChatInstructor[Request, gemini.GenerateContentResponse]         = (*Instructor)(nil)
 	_ instructor.SchemaStreamInstructor[Request, gemini.GenerateContentResponse] = (*Instructor)(nil)
@@ -28,6 +32,9 @@ func New(client *gemini.Client, opts ...instructor.Option) *Instructor {
 	for _, opt := range opts {
 		opt(&i.Options)
 	}
-	instructor.WithProvider(instructor.ProviderGemini)
+	if i.Memory() == nil {
+		i.SetMemory(instructor.NewMemory(-1))
+	}
+	instructor.WithProvider(instructor.ProviderGemini)(&i.Options)
 	return i
 }

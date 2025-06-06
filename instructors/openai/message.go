@@ -10,6 +10,12 @@ import (
 )
 
 func ConvertMessageFrom(src *instructor.Message) []openai.ChatCompletionMessageParamUnion {
+	if src.Role == instructor.SystemRole {
+		if src.Text != "" {
+			return []openai.ChatCompletionMessageParamUnion{openai.SystemMessage(src.Text)}
+		}
+		return nil
+	}
 	if len(src.ToolResults) > 0 {
 		list := make([]openai.ChatCompletionMessageParamUnion, 0, len(src.ToolResults))
 		for _, v := range src.ToolResults {
@@ -36,9 +42,6 @@ func ConvertMessageFrom(src *instructor.Message) []openai.ChatCompletionMessageP
 			},
 		}
 		return []openai.ChatCompletionMessageParamUnion{msg}
-	}
-	if src.Role != instructor.UserRole && src.Role != instructor.AssistantRole {
-		return nil
 	}
 	list := make([]openai.ChatCompletionContentPartUnionParam, 0, len(src.Files)+len(src.Audios)+len(src.Images)+1)
 	if len(src.Files) > 0 {

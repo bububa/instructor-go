@@ -45,7 +45,7 @@ func ConvertMessageFrom(src *instructor.Message, dist *gemini.Content) error {
 		dist.Parts = list
 		return nil
 	}
-	if src.Role != instructor.UserRole && src.Role != instructor.AssistantRole {
+	if src.Role != instructor.SystemRole && src.Role != instructor.AssistantRole {
 		return errors.New("do not support role")
 	}
 	list := make([]*gemini.Part, 0, len(src.Files)+len(src.Audios)+len(src.Images)+1)

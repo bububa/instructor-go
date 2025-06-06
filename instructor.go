@@ -18,6 +18,7 @@ type Instructor interface {
 	SchemaNamer() SchemaNamer
 	MCPTools() []MCPTool
 	Memory() *Memory
+	SetMemory(*Memory)
 	MaxRetries() int
 	Validate() bool
 	Verbose() bool

@@ -17,6 +17,16 @@ import (
 )
 
 func ConvertMessageFrom(src *instructor.Message, dist *anthropic.Message) error {
+	if src.Role != instructor.SystemRole {
+		if src.Text != "" {
+			dist.Role = anthropic.RoleAssistant
+			dist.Content = []anthropic.MessageContent{
+				anthropic.NewTextMessageContent(src.Text),
+			}
+			return nil
+		}
+		return errors.New("do not support role")
+	}
 	if len(src.ToolUses) > 0 {
 		list := make([]anthropic.MessageContent, 0, len(src.ToolUses))
 		for _, v := range src.ToolUses {
@@ -36,9 +46,6 @@ func ConvertMessageFrom(src *instructor.Message, dist *anthropic.Message) error 
 		dist.Role = anthropic.RoleUser
 		dist.Content = list
 		return nil
-	}
-	if src.Role != instructor.UserRole && src.Role != instructor.AssistantRole {
-		return errors.New("do not support role")
 	}
 	list := make([]anthropic.MessageContent, 0, len(src.Files)+len(src.Audios)+len(src.Images)+1)
 	var buf bytes.Buffer
