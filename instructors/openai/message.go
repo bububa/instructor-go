@@ -120,12 +120,22 @@ func ConvertMessageFrom(src *instructor.Message) []openai.ChatCompletionMessageP
 func ConvertMessageTo(src *openai.ChatCompletionMessageParamUnion, dist *instructor.Message) error {
 	if msg := src.OfAssistant; msg != nil {
 		dist.Role = instructor.AssistantRole
-		if msg.Audio.ID != "" {
+		if len(msg.ToolCalls) > 0 {
+			for _, call := range msg.ToolCalls {
+				dist.ToolUses = append(dist.ToolUses, instructor.ToolUse{
+					ID:        call.ID,
+					Name:      call.Function.Name,
+					Arguments: call.Function.Arguments,
+				})
+			}
+		} else if msg.Audio.ID != "" {
 			dist.Audios = append(dist.Audios, instructor.Audio{
 				ID: msg.Audio.ID,
 			})
+		} else if txt := msg.Content.OfString.Value; txt != "" {
+			dist.Text = txt
 		} else {
-			dist.Text = msg.Content.OfString.Value
+			return errors.New("invalid assistant message")
 		}
 	} else if msg := src.OfUser; msg != nil {
 		dist.Role = instructor.UserRole
@@ -167,6 +177,8 @@ func ConvertMessageTo(src *openai.ChatCompletionMessageParamUnion, dist *instruc
 			ID:      msg.ToolCallID,
 			Content: msg.Content.OfString.Value,
 		})
+	} else {
+		return errors.New("role not support")
 	}
-	return errors.New("role not support")
+	return nil
 }
