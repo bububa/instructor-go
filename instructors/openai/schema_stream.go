@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"maps"
 
 	"github.com/invopop/jsonschema"
 	"github.com/mark3labs/mcp-go/mcp"
@@ -132,19 +133,27 @@ func (i *Instructor) createStream(ctx context.Context, request openai.ChatComple
 		}
 	}
 	if thinking := i.ThinkingConfig(); thinking != nil {
-		if extraFields == nil {
-			extraFields = make(map[string]any, 2)
-		}
-		if thinking.Enabled {
-			extraFields["enable_thinking"] = true
-			extraFields["thinking"] = "enabled"
+		if kv := thinking.Marshaler; kv != nil {
+			if extraFields != nil {
+				maps.Copy(extraFields, kv())
+			} else {
+				extraFields = kv()
+			}
 		} else {
-			extraFields["enable_thinking"] = false
-			extraFields["thinking"] = "disabled"
-		}
-		extraFields["chat_template_kwargs"] = map[string]any{
-			"enable_thinking": thinking.Enabled,
-			"thinking_budget": thinking.Budget,
+			if extraFields == nil {
+				extraFields = make(map[string]any, 2)
+			}
+			if thinking.Enabled {
+				extraFields["enable_thinking"] = true
+				extraFields["thinking"] = "enabled"
+			} else {
+				extraFields["enable_thinking"] = false
+				extraFields["thinking"] = "disabled"
+			}
+			extraFields["chat_template_kwargs"] = map[string]any{
+				"enable_thinking": thinking.Enabled,
+				"thinking_budget": thinking.Budget,
+			}
 		}
 	}
 	request.SetExtraFields(extraFields)

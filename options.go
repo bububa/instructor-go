@@ -9,8 +9,9 @@ const (
 type Option func(o *Options)
 
 type ThinkingConfig struct {
-	Enabled bool
-	Budget  int
+	Enabled   bool
+	Budget    int
+	Marshaler func() map[string]any
 }
 
 type Options struct {
@@ -77,6 +78,15 @@ func WithThinking(budget int) Option {
 		o.thinkingConfig = &ThinkingConfig{
 			Enabled: true,
 			Budget:  budget,
+		}
+	}
+}
+
+func WithThinkingMarshaler(marshaler func() map[string]any) Option {
+	return func(o *Options) {
+		o.thinkingConfig = &ThinkingConfig{
+			Enabled:   true,
+			Marshaler: marshaler,
 		}
 	}
 }
