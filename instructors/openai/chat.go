@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"maps"
 
 	// "github.com/bububa/ljson"
 	"github.com/invopop/jsonschema"
@@ -42,23 +43,31 @@ func (i *Instructor) Chat(
 		}
 	}
 	if thinking := i.ThinkingConfig(); thinking != nil {
-		if extraFields == nil {
-			extraFields = make(map[string]any, 2)
-		}
-		if thinking.Enabled {
-			extraFields["enable_thinking"] = true
-			extraFields["thinking"] = map[string]string{
-				"type": "enabled",
+		if kv := thinking.Marshaler; kv != nil {
+			if extraFields != nil {
+				maps.Copy(extraFields, kv())
+			} else {
+				extraFields = kv()
 			}
 		} else {
-			extraFields["enable_thinking"] = false
-			extraFields["thinking"] = map[string]string{
-				"type": "disabled",
+			if extraFields == nil {
+				extraFields = make(map[string]any, 2)
 			}
-		}
-		extraFields["chat_template_kwargs"] = map[string]any{
-			"enable_thinking": thinking.Enabled,
-			"thinking_budget": thinking.Budget,
+			if thinking.Enabled {
+				extraFields["enable_thinking"] = true
+				extraFields["thinking"] = map[string]string{
+					"type": "enabled",
+				}
+			} else {
+				extraFields["enable_thinking"] = false
+				extraFields["thinking"] = map[string]string{
+					"type": "disabled",
+				}
+			}
+			extraFields["chat_template_kwargs"] = map[string]any{
+				"enable_thinking": thinking.Enabled,
+				"thinking_budget": thinking.Budget,
+			}
 		}
 	}
 	req.SetExtraFields(extraFields)
