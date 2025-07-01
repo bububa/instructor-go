@@ -80,6 +80,9 @@ func ConvertMessageFrom(src *instructor.Message) []openai.ChatCompletionMessageP
 	}
 	if len(src.Videos) > 0 {
 		for _, v := range src.Videos {
+			if v.URL == "" {
+				continue
+			}
 			videoParam := &openai.ChatCompletionContentPartImageParam{
 				Type: constant.ImageURL("video_url"),
 			}
@@ -98,6 +101,9 @@ func ConvertMessageFrom(src *instructor.Message) []openai.ChatCompletionMessageP
 	}
 	if len(src.Images) > 0 {
 		for _, v := range src.Images {
+			if v.URL == "" {
+				continue
+			}
 			fp := openai.ImageContentPart(openai.ChatCompletionContentPartImageImageURLParam{
 				URL:    v.URL,
 				Detail: v.Detail,
@@ -150,12 +156,12 @@ func ConvertMessageTo(src *openai.ChatCompletionMessageParamUnion, dist *instruc
 						Name: v.File.Filename.Value,
 						Data: v.File.FileData.Value,
 					})
-				} else if v := part.OfInputAudio; v != nil {
+				} else if v := part.OfInputAudio; v != nil && v.InputAudio.Data != "" {
 					dist.Audios = append(dist.Audios, instructor.Audio{
 						Data:   v.InputAudio.Data,
 						Format: v.InputAudio.Format,
 					})
-				} else if v := part.OfImageURL; v != nil {
+				} else if v := part.OfImageURL; v != nil && v.ImageURL.URL != "" {
 					if v.Type == constant.ImageURL("video_url") {
 						dist.Videos = append(dist.Videos, instructor.Video{
 							URL:    v.ImageURL.URL,
@@ -166,7 +172,7 @@ func ConvertMessageTo(src *openai.ChatCompletionMessageParamUnion, dist *instruc
 						URL:    v.ImageURL.URL,
 						Detail: v.ImageURL.Detail,
 					})
-				} else if v := part.OfText; v != nil {
+				} else if v := part.OfText; v != nil && v.Text != "" {
 					dist.Text = v.Text
 				}
 			}
