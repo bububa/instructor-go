@@ -161,17 +161,21 @@ func ConvertMessageTo(src *openai.ChatCompletionMessageParamUnion, dist *instruc
 						Data:   v.InputAudio.Data,
 						Format: v.InputAudio.Format,
 					})
-				} else if v := part.OfImageURL; v != nil && v.ImageURL.URL != "" {
+				} else if v := part.OfImageURL; v != nil {
 					if v.Type == constant.ImageURL("video_url") {
-						dist.Videos = append(dist.Videos, instructor.Video{
+						extraFields := v.ExtraFields()
+						if videoField, ok := extraFields["video_url"].(openai.ImageURL); ok {
+							dist.Videos = append(dist.Videos, instructor.Video{
+								URL:    videoField.URL,
+								Detail: string(videoField.Detail),
+							})
+						}
+					} else if v.ImageURL.URL != "" {
+						dist.Images = append(dist.Images, instructor.Image{
 							URL:    v.ImageURL.URL,
 							Detail: v.ImageURL.Detail,
 						})
 					}
-					dist.Images = append(dist.Images, instructor.Image{
-						URL:    v.ImageURL.URL,
-						Detail: v.ImageURL.Detail,
-					})
 				} else if v := part.OfText; v != nil && v.Text != "" {
 					dist.Text = v.Text
 				}
