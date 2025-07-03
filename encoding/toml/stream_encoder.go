@@ -75,6 +75,7 @@ func (e *StreamEncoder) Context() []byte {
 		b.Write(bs)
 	}
 	b.WriteString("\nMake sure to return an list with the elements an instance of the TOML, not the schema itself.\n")
+	b.WriteString("\nDo not output anything else except the list.\n")
 	return b.Bytes()
 }
 
