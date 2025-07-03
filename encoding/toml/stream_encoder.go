@@ -5,12 +5,14 @@ import (
 	"bytes"
 	"context"
 	"reflect"
+	"regexp"
 
 	"github.com/BurntSushi/toml"
 	"github.com/brianvoe/gofakeit/v7"
 	"github.com/go-playground/validator/v10"
 
 	"github.com/bububa/instructor-go"
+	"github.com/bububa/instructor-go/internal"
 )
 
 type StreamEncoder struct {
@@ -72,7 +74,7 @@ func (e *StreamEncoder) Context() []byte {
 		}
 		b.Write(bs)
 	}
-	b.WriteString("\nMake sure to return an array with the elements an instance of the TOML, not the schema itself.\n")
+	b.WriteString("\nMake sure to return an list with the elements an instance of the TOML, not the schema itself.\n")
 	return b.Bytes()
 }
 
@@ -114,9 +116,10 @@ func (e *StreamEncoder) Read(ctx context.Context, ch <-chan string) <-chan any {
 
 func (e *StreamEncoder) processBuffer(parsedChan chan<- any) {
 	block := new(bytes.Buffer)
+	re := regexp.MustCompile(`^\[\[\d+\]\]$`)
 	for e.scanner.Scan() {
 		bs := e.scanner.Bytes()
-		if trimmed := bytes.TrimSpace(bs); bytes.Equal(trimmed, []byte("----")) {
+		if trimmed := bytes.TrimSpace(bs); internal.IsAllSameByte(trimmed, '-') || re.Match(trimmed) && len(trimmed) > 1 {
 			if block.Len() > 0 {
 				in := bytes.TrimSuffix(bytes.TrimPrefix(bytes.TrimSpace(block.Bytes()), IGNORE_PREFIX), IGNORE_SUFFIX)
 				instance := reflect.New(e.reqType).Interface()
