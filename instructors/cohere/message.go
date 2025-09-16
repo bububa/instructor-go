@@ -35,7 +35,7 @@ func ConvertMessageFrom(src *instructor.Message, dist *cohere.Message) {
 			list = append(list, &msg)
 		}
 		dist.Role = "USER"
-		dist.Tool = &cohere.ToolMessage{
+		dist.Tool = &cohere.ChatToolMessage{
 			ToolResults: list,
 		}
 		return
