@@ -1,12 +1,13 @@
 module github.com/bububa/instructor-go
 
-go 1.23.5
+go 1.25.1
 
 require (
 	github.com/BurntSushi/toml v1.5.0
 	github.com/brianvoe/gofakeit/v7 v7.2.1
 	github.com/bububa/ljson v1.0.1
 	github.com/cohere-ai/cohere-go/v2 v2.14.1
+	github.com/gabriel-vasile/mimetype v1.4.9
 	github.com/go-playground/validator/v10 v10.26.0
 	github.com/invopop/jsonschema v0.13.0
 	github.com/liushuangls/go-anthropic/v2 v2.15.2
@@ -26,7 +27,6 @@ require (
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/buger/jsonparser v1.1.1 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
-	github.com/gabriel-vasile/mimetype v1.4.9 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
