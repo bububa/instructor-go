@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/openai/openai-go"
 	"github.com/openai/openai-go/option"
@@ -30,12 +31,13 @@ type Address struct {
 }
 
 func (u User) String() string {
-	result := fmt.Sprintf("First Name: %s\nLast Name: %s\nAge: %d\nEmail: %s\nGender: %s\nFavourite Color: %s\nAddresses:\n",
-		u.FirstName, u.LastName, u.Age, u.Email, u.Gender, u.FavouriteColor)
+	var result strings.Builder
+	result.WriteString(fmt.Sprintf("First Name: %s\nLast Name: %s\nAge: %d\nEmail: %s\nGender: %s\nFavourite Color: %s\nAddresses:\n",
+		u.FirstName, u.LastName, u.Age, u.Email, u.Gender, u.FavouriteColor))
 	for _, address := range u.Addresses {
-		result += fmt.Sprintf("  %s\n", address)
+		result.WriteString(fmt.Sprintf("  %s\n", address))
 	}
-	return result
+	return result.String()
 }
 
 func (a Address) String() string {
@@ -45,9 +47,9 @@ func (a Address) String() string {
 func main() {
 	ctx := context.Background()
 
-  clt := openai.NewClient(option.WithAPIKey(os.Getenv("OPENAI_API_KEY")))
+	clt := openai.NewClient(option.WithAPIKey(os.Getenv("OPENAI_API_KEY")))
 	client := instructors.FromOpenAI(
-    &clt,
+		&clt,
 		instructor.WithMode(instructor.ModeJSON),
 		instructor.WithMaxRetries(3),
 		instructor.WithValidation(),
@@ -59,10 +61,10 @@ func main() {
 		&openai.ChatCompletionNewParams{
 			Model: openai.ChatModelGPT4oMini,
 			Messages: []openai.ChatCompletionMessageParamUnion{
-					openai.UserMessage( "Meet Jane Doe: a 30-year-old adventurer who can be reached at janed@example.com. " +
-						"Jane loves the vibrant hue of #FF5733. She resides in Metropolis at 456 Oak St, on the wonderful planet Earth. " +
-						"To chat with her, dial (555) 555-1234. Jane also spends her weekends at her cottage located at 789 Pine St, " +
-						"in Smallville, on the same planet. You can contact her there at (555) 555-5678."),
+				openai.UserMessage("Meet Jane Doe: a 30-year-old adventurer who can be reached at janed@example.com. " +
+					"Jane loves the vibrant hue of #FF5733. She resides in Metropolis at 456 Oak St, on the wonderful planet Earth. " +
+					"To chat with her, dial (555) 555-1234. Jane also spends her weekends at her cottage located at 789 Pine St, " +
+					"in Smallville, on the same planet. You can contact her there at (555) 555-5678."),
 			},
 		},
 		&user,

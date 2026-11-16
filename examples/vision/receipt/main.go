@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"strings"
 
 	"github.com/openai/openai-go"
 	"github.com/openai/openai-go/option"
@@ -28,12 +29,12 @@ type Receipt struct {
 }
 
 func (r Receipt) String() string {
-	var result string
+	var result strings.Builder
 	for _, item := range r.Items {
-		result += item.String() + "\n"
+		result.WriteString(item.String() + "\n")
 	}
-	result += fmt.Sprintf("Total: $%.2f", r.Total)
-	return result
+	result.WriteString(fmt.Sprintf("Total: $%.2f", r.Total))
+	return result.String()
 }
 
 func (r *Receipt) Validate() error {

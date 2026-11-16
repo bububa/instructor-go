@@ -65,8 +65,8 @@ func main() {
 	getStructuredDocument := func(docWithLines string) *StructuredDocument {
 		var structuredDoc StructuredDocument
 		err := client.Chat(ctx, &cohere.ChatRequest{
-			Model: toPtr("command-r-plus"),
-			Preamble: toPtr(`
+			Model: new("command-r-plus"),
+			Preamble: new(`
 You are a world class educator working on organizing your lecture notes.
 Read the document below and extract a StructuredDocument object from it where each section of the document is centered around a single concept/topic that can be taught in one lesson.
 Each line of the document is marked with its line number in square brackets (e.g. [1], [2], [3], etc). Use the line numbers to indicate section start and end.
@@ -108,19 +108,20 @@ Each line of the document is marked with its line number in square brackets (e.g
  * Preprocessing utilties
  */
 
+//go:fix inline
 func toPtr[T any](val T) *T {
-	return &val
+	return new(val)
 }
 
 func docWithLines(document string) (string, map[int]string) {
 	documentLines := strings.Split(document, "\n")
-	documentWithLineNumbers := ""
+	var documentWithLineNumbers strings.Builder
 	line2text := make(map[int]string)
 	for i, line := range documentLines {
-		documentWithLineNumbers += fmt.Sprintf("[%d] %s\n", i, line)
+		documentWithLineNumbers.WriteString(fmt.Sprintf("[%d] %s\n", i, line))
 		line2text[i] = line
 	}
-	return documentWithLineNumbers, line2text
+	return documentWithLineNumbers.String(), line2text
 }
 
 func getSectionsText(structuredDoc *StructuredDocument, line2text map[int]string) []Segment {

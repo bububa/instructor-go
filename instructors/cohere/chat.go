@@ -11,7 +11,6 @@ import (
 
 	"github.com/bububa/instructor-go"
 	jsonenc "github.com/bububa/instructor-go/encoding/json"
-	"github.com/bububa/instructor-go/internal"
 	"github.com/bububa/instructor-go/internal/chat"
 )
 
@@ -73,9 +72,9 @@ func (i *Instructor) chatToolCall(ctx context.Context, request cohere.ChatReques
 func (i *Instructor) completion(ctx context.Context, request cohere.ChatRequest, response *cohere.NonStreamedChatResponse) (string, error) {
 	if bs := i.Encoder().Context(); bs != nil {
 		if system := request.Preamble; system == nil {
-			request.Preamble = internal.ToPtr(string(bs))
+			request.Preamble = new(string(bs))
 		} else {
-			request.Preamble = internal.ToPtr(fmt.Sprintf("%s\n\n#OUTPUT SCHEMA\n%s", *system, string(bs)))
+			request.Preamble = new(fmt.Sprintf("%s\n\n#OUTPUT SCHEMA\n%s", *system, string(bs)))
 		}
 	}
 	return i.chat(ctx, request, response)
@@ -104,8 +103,8 @@ func (i *Instructor) EmptyResponseWithUsageSum(ret *cohere.NonStreamedChatRespon
 	*ret = cohere.NonStreamedChatResponse{
 		Meta: &cohere.ApiMeta{
 			Tokens: &cohere.ApiMetaTokens{
-				InputTokens:  internal.ToPtr(float64(usage.InputTokens)),
-				OutputTokens: internal.ToPtr(float64(usage.OutputTokens)),
+				InputTokens:  new(float64(usage.InputTokens)),
+				OutputTokens: new(float64(usage.OutputTokens)),
 			},
 		},
 	}
@@ -136,8 +135,8 @@ func (i *Instructor) SetUsageSumToResponse(response *cohere.NonStreamedChatRespo
 	if response.Meta.Tokens == nil {
 		response.Meta.Tokens = new(cohere.ApiMetaTokens)
 	}
-	response.Meta.Tokens.InputTokens = internal.ToPtr(float64(usage.InputTokens))
-	response.Meta.Tokens.OutputTokens = internal.ToPtr(float64(usage.OutputTokens))
+	response.Meta.Tokens.InputTokens = new(float64(usage.InputTokens))
+	response.Meta.Tokens.OutputTokens = new(float64(usage.OutputTokens))
 }
 
 func (i *Instructor) CountUsageFromResponse(response *cohere.NonStreamedChatResponse, usage *instructor.UsageSum) {
@@ -161,7 +160,7 @@ func createCohereTools(schema *instructor.Schema) *cohere.Tool {
 
 	for _, function := range schema.Functions {
 		parameterDefinition := &cohere.ToolParameterDefinitionsValue{
-			Description: internal.ToPtr(function.Description),
+			Description: new(function.Description),
 			Type:        function.Parameters.Type,
 		}
 		tool.ParameterDefinitions[function.Name] = parameterDefinition

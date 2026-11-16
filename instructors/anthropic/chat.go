@@ -74,12 +74,13 @@ func (i *Instructor) completionToolCall(ctx context.Context, request anthropic.M
 	}
 
 	for _, c := range resp.Content {
-		if c.Type != anthropic.MessagesContentTypeToolUse {
+		if c.Type != anthropic.MessagesContentTypeToolUse && c.MessageContentToolUse != nil {
 			// Skip non tool responses
 			continue
 		}
 
-		toolInput, err := json.Marshal(c.Input)
+		toolUse := c.MessageContentToolUse
+		toolInput := string(toolUse.Input)
 		if err != nil {
 			i.EmptyResponseWithResponseUsage(response, &resp)
 			return "", err
@@ -93,14 +94,14 @@ func (i *Instructor) completionToolCall(ctx context.Context, request anthropic.M
 				Role: instructor.AssistantRole,
 				ToolUses: []instructor.ToolUse{
 					{
-						ID:        c.ID,
-						Name:      c.Name,
-						Arguments: string(toolInput),
+						ID:        toolUse.ID,
+						Name:      toolUse.Name,
+						Arguments: toolInput,
 					},
 				},
 			})
 		}
-		return string(toolInput), nil
+		return toolInput, nil
 	}
 
 	i.EmptyResponseWithResponseUsage(response, &resp)

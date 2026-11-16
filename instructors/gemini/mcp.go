@@ -9,7 +9,6 @@ import (
 	gemini "google.golang.org/genai"
 
 	"github.com/bububa/instructor-go"
-	"github.com/bububa/instructor-go/internal"
 )
 
 func (i *Instructor) InjectMCP(ctx context.Context, req *gemini.GenerateContentConfig) {
@@ -78,10 +77,10 @@ func translateToGeminiSchema(schema mcp.ToolInputSchema) *gemini.Schema {
 		// Functions that don't take any arguments have an object-type schema with 0 properties.
 		// Google/Gemini does not like that: Error 400: * GenerateContentRequest properties: should be non-empty for OBJECT type.
 		// To work around this issue, we'll just inject some unused, nullable property with a primitive type.
-		s.Nullable = internal.ToPtr(true)
+		s.Nullable = new(true)
 		s.Properties["unused"] = &gemini.Schema{
 			Type:     gemini.TypeInteger,
-			Nullable: internal.ToPtr(true),
+			Nullable: new(true),
 		}
 	}
 	return s

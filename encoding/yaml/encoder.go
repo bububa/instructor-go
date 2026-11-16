@@ -102,14 +102,14 @@ func (e *Encoder) Context() []byte {
 // cleanup the JSON by trimming prefixes and postfixes
 func cleanup(bs []byte) []byte {
 	// 找到 "```yaml" 的位置
-	startIndex := bytes.Index(bs, IGNORE_PREFIX)
-	if startIndex == -1 {
+	_, after, ok := bytes.Cut(bs, IGNORE_PREFIX)
+	if !ok {
 		// 如果没有找到起始标记，直接返回原始字符串
 		return bs
 	}
 
 	// 计算移除起始标记及其之前的内容后的字符串
-	contentAfterStart := bs[startIndex+len(IGNORE_PREFIX):]
+	contentAfterStart := after
 
 	// 找到最后一个 "```" 的位置
 	endIndex := bytes.LastIndex(contentAfterStart, IGNORE_SUFFIX)
@@ -185,7 +185,7 @@ func (e *Encoder) structToYAMLWithComments(v any) (*yaml.Node, error) {
 // 递归解析值，支持指针和 interface{}
 func (e *Encoder) getValueNode(v reflect.Value) *yaml.Node {
 	// 处理指针
-	if v.Kind() == reflect.Ptr {
+	if v.Kind() == reflect.Pointer {
 		if v.IsNil() {
 			return &yaml.Node{Kind: yaml.ScalarNode, Value: "null", Tag: "!!null"}
 		}
@@ -255,7 +255,7 @@ func extractDescription(tag string) string {
 
 // 递归解引用指针，直到 `v` 不是指针类型
 func dereference(v reflect.Value) reflect.Value {
-	for v.Kind() == reflect.Ptr {
+	for v.Kind() == reflect.Pointer {
 		if v.IsNil() {
 			return reflect.Value{} // 直接返回一个空值，防止 nil pointer dereference
 		}

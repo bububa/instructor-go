@@ -15,7 +15,6 @@ import (
 
 	"github.com/bububa/instructor-go"
 	jsonenc "github.com/bububa/instructor-go/encoding/json"
-	"github.com/bububa/instructor-go/internal"
 	"github.com/bububa/instructor-go/internal/chat"
 	"github.com/mark3labs/mcp-go/mcp"
 )
@@ -85,7 +84,7 @@ func (i *Instructor) stream(ctx context.Context, cfg gemini.GenerateContentConfi
 	if thinkingConfig := i.ThinkingConfig(); thinkingConfig != nil {
 		cfg.ThinkingConfig = &gemini.ThinkingConfig{
 			IncludeThoughts: thinkingConfig.Enabled,
-			ThinkingBudget:  internal.ToPtr(int32(thinkingConfig.Budget)),
+			ThinkingBudget:  new(int32(thinkingConfig.Budget)),
 		}
 	}
 	content := gemini.NewContentFromParts(request.Parts, gemini.RoleUser)

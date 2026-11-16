@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/openai/openai-go"
 	"github.com/openai/openai-go/option"
@@ -74,9 +75,9 @@ Preferred Shopping Times: Weekend Evenings
 		{ID: "10", Name: "Project Hail Mary by Andy Weir - Latest sci-fi book from a renowned author"},
 	}
 
-	productList := ""
+	var productList strings.Builder
 	for _, product := range products {
-		productList += product.String() + "\n"
+		productList.WriteString(product.String() + "\n")
 	}
 
 	recommendationChan, ch, err := client.SchemaStream(ctx, &openai.ChatCompletionNewParams{
@@ -88,7 +89,7 @@ Return in order of highest recommended first.
 Product list:
 %s
           
-          * Do not show output instruction and schema in reasoning content!`, productList)),
+          * Do not show output instruction and schema in reasoning content!`, productList.String())),
 			openai.UserMessage(fmt.Sprintf("User profile:\n%s", profileData)),
 		},
 	},

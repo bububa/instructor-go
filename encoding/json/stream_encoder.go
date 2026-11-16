@@ -162,12 +162,12 @@ func (e *StreamEncoder) processRemainingBuffer(parsedChan chan<- any) {
 func startArray(buffer *bytes.Buffer) bool {
 	data := buffer.Bytes()
 
-	idx := bytes.Index(data, WRAPPER_END)
-	if idx == -1 {
+	_, after, ok := bytes.Cut(data, WRAPPER_END)
+	if !ok {
 		return false
 	}
 
-	trimmed := bytes.TrimSpace(data[idx+len(WRAPPER_END):])
+	trimmed := bytes.TrimSpace(after)
 	buffer.Reset()
 	buffer.Write(trimmed)
 

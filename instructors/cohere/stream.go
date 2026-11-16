@@ -8,7 +8,6 @@ import (
 
 	"github.com/bububa/instructor-go"
 	"github.com/bububa/instructor-go/encoding"
-	"github.com/bububa/instructor-go/internal"
 )
 
 func (i *Instructor) Stream(
@@ -28,9 +27,9 @@ func (i *Instructor) Stream(
 		}
 		if bs := i.Encoder().Context(); bs != nil {
 			if system := req.Preamble; system == nil {
-				req.Preamble = internal.ToPtr(string(bs))
+				req.Preamble = new(string(bs))
 			} else {
-				req.Preamble = internal.ToPtr(fmt.Sprintf("%s\n\n#OUTPUT SCHEMA\n%s", *system, string(bs)))
+				req.Preamble = new(fmt.Sprintf("%s\n\n#OUTPUT SCHEMA\n%s", *system, string(bs)))
 			}
 		}
 	}

@@ -12,7 +12,6 @@ import (
 	cohere "github.com/cohere-ai/cohere-go/v2"
 
 	"github.com/bububa/instructor-go"
-	"github.com/bububa/instructor-go/internal"
 	"github.com/bububa/instructor-go/internal/chat"
 )
 
@@ -28,9 +27,9 @@ func (i *Instructor) SchemaStream(
 func (i *Instructor) SchemaStreamHandler(ctx context.Context, request *cohere.ChatStreamRequest, response *cohere.NonStreamedChatResponse) (<-chan instructor.StreamData, error) {
 	if bs := i.StreamEncoder().Context(); bs != nil {
 		if system := request.Preamble; system == nil {
-			request.Preamble = internal.ToPtr(string(bs))
+			request.Preamble = new(string(bs))
 		} else {
-			request.Preamble = internal.ToPtr(fmt.Sprintf("%s\n\n#OUTPUT SCHEMA\n%s", *system, string(bs)))
+			request.Preamble = new(fmt.Sprintf("%s\n\n#OUTPUT SCHEMA\n%s", *system, string(bs)))
 		}
 	}
 	return i.createStream(ctx, request, response)

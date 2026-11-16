@@ -75,14 +75,14 @@ func (e *Encoder) Context() []byte {
 // cleanup the JSON by trimming prefixes and postfixes
 func cleanup(bs []byte) []byte {
 	// 找到 "```yaml" 的位置
-	startIndex := bytes.Index(bs, IGNORE_PREFIX)
-	if startIndex == -1 {
+	_, after, ok := bytes.Cut(bs, IGNORE_PREFIX)
+	if !ok {
 		// 如果没有找到起始标记，直接返回原始字符串
 		return bs
 	}
 
 	// 计算移除起始标记及其之前的内容后的字符串
-	contentAfterStart := bs[startIndex+len(IGNORE_PREFIX):]
+	contentAfterStart := after
 
 	// 找到最后一个 "```" 的位置
 	endIndex := bytes.LastIndex(contentAfterStart, IGNORE_SUFFIX)

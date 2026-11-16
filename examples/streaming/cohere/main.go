@@ -35,9 +35,9 @@ func main() {
 	)
 
 	hfStream, _, err := client.SchemaStream(ctx, &cohere.ChatStreamRequest{
-		Model:     toPtr("command-r-plus"),
+		Model:     new("command-r-plus"),
 		Message:   "Tell me about the history of artificial intelligence up to year 2000",
-		MaxTokens: toPtr(2500),
+		MaxTokens: new(2500),
 	},
 		*new(HistoricalFact),
 		nil,
@@ -73,6 +73,7 @@ func main() {
 	*/
 }
 
+//go:fix inline
 func toPtr[T any](val T) *T {
-	return &val
+	return new(val)
 }

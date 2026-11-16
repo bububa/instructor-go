@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/openai/openai-go"
 	"github.com/openai/openai-go/option"
@@ -18,9 +19,9 @@ type Character struct {
 }
 
 func (c *Character) String() string {
-	facts := ""
+	var facts strings.Builder
 	for i, fact := range c.Fact {
-		facts += fmt.Sprintf("  %d. %s\n", i+1, fact)
+		facts.WriteString(fmt.Sprintf("  %d. %s\n", i+1, fact))
 	}
 	return fmt.Sprintf(`
 Name: %s
@@ -28,16 +29,16 @@ Age: %d
 Facts:
 %s
 `,
-		c.Name, c.Age, facts)
+		c.Name, c.Age, facts.String())
 }
 
 func main() {
 	ctx := context.Background()
 
-  clt := openai.NewClient(option.WithAPIKey("ollama"),option.WithBaseURL("http://localhost:11434/v1"))
+	clt := openai.NewClient(option.WithAPIKey("ollama"), option.WithBaseURL("http://localhost:11434/v1"))
 
 	client := instructors.FromOpenAI(
-    &clt,
+		&clt,
 		instructor.WithMode(instructor.ModeJSON),
 		instructor.WithMaxRetries(3),
 	)
@@ -46,7 +47,7 @@ func main() {
 	err := client.Chat(ctx, &openai.ChatCompletionNewParams{
 		Model: "llama3",
 		Messages: []openai.ChatCompletionMessageParamUnion{
-				openai.UserMessage("Tell me about the Hal 9000"),
+			openai.UserMessage("Tell me about the Hal 9000"),
 		},
 	},
 		&character,
